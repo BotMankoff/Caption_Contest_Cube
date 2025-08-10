@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Cube Caption Swap Game - New Yorker Edition (Final Fix)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            user-select: none;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: 2.5em;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .cube-section {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .cube-container {
+            perspective: 1200px;
+            width: 700px;
+            height: 700px;
+            position: relative;
+        }
+
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+            transform: translateZ(-350px);
+        }
+
+        .cube-face {
+            position: absolute;
+            width: 700px;
+            height: 700px;
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(245,245,245,0.98) 100%);
+            backface-visibility: visible;
+            border-radius: 15px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+            padding: 15px;
+        }
+
+        .cube-face.active {
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.9), 0 0 30px rgba(255, 215, 0, 0.5);
+            border-color: gold;
+            border-width: 4px;
+        }
+
+        .cube-face.front  { transform: rotateY(  0deg) translateZ(350px); }
+        .cube-face.back   { transform: rotateY(180deg) translateZ(350px); }
+        .cube-face.right  { transform: rotateY( 90deg) translateZ(350px); }
+        .cube-face.left   { transform: rotateY(-90deg) translateZ(350px); }
+        .cube-face.top    { transform: rotateX( 90deg) translateZ(350px); }
+        .cube-face.bottom { transform: rotateX(-90deg) translateZ(350px); }
+
+        .face-content {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .cube-cartoon {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .cube-cartoon.correct {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .cube-cartoon.drag-over {
+            border-color: #2196F3;
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(33, 150, 243, 0.4);
+            z-index: 10;
+        }
+
+        .cube-image {
+            flex: 1;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            min-height: 120px;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+
+        .cube-image:hover {
+            z-index: 100;
+            position: relative;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+            border-radius: 8px;
+            background: white;
+            cursor: move;
+        }
+
+        .cube-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+
+        .cube-image:hover img {
+            transform: scale(1.75);
+        }
+
+        .cube-image.panning img {
+            transition: none;
+        }
+
+        .image-placeholder {
+            padding: 25px 10px;
+            color: #666;
+            text-align: center;
+            font-size: 14px;
+            background: linear-gradient(135deg, #e8e8e8 0%, #f5f5f5 100%);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cube-caption {
+            padding: 8px;
+            font-size: 12px;
+            background: #f8f9fa;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.3;
+            cursor: default;
+            transition: all 0.3s ease;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .cube-caption.draggable {
+            cursor: grab;
+        }
+
+        .cube-caption.draggable:hover {
+            background: #e3f2fd;
+        }
+
+        .cube-caption.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .cube-check {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 28px;
+            height: 28px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .cube-cartoon.correct .cube-check {
+            display: flex;
+            animation: checkPop 0.3s ease;
+        }
+
+        @keyframes checkPop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .nav-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            color: #333;
+        }
+
+        .nav-btn:hover {
+            background: white;
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .nav-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .game-info-bar {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            min-width: 700px;
+        }
+
+        .stats-group {
+            display: flex;
+            gap: 25px;
+            align-items: center;
+        }
+
+        .stat-item {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            color: #2196F3;
+            font-size: 18px;
+        }
+
+        .face-indicator {
+            font-size: 18px;
+            font-weight: 700;
+            color: #764ba2;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(118,75,162,0.1) 0%, rgba(102,126,234,0.1) 100%);
+            border-radius: 20px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .select-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .shuffle-btn {
+            background: #ff9800;
+            color: white;
+        }
+
+        .new-cube-btn {
+            background: #9c27b0;
+            color: white;
+        }
+
+        .reset-btn {
+            background: #607d8b;
+            color: white;
+        }
+
+        .solve-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .win-overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: white;
+            padding: 30px 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            z-index: 1000;
+            transition: transform 0.5s ease;
+        }
+
+        .win-overlay.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .win-message {
+            font-size: 32px;
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .win-stats {
+            font-size: 18px;
+            color: #666;
+        }
+
+        .mode-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #764ba2;
+            display: none;
+        }
+
+        .cube-face.active .mode-badge {
+            display: block;
+        }
+
+        .contest-number {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 10px;
+            color: #999;
+            background: rgba(255,255,255,0.9);
+            padding: 2px 5px;
+            border-radius: 3px;
+            z-index: 1;
+        }
+
+        .help-btn {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+        }
+
+        .help-btn:hover {
+            background: white;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .help-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .help-overlay.show {
+            display: flex;
+        }
+
+        .help-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .help-content h2 {
+            color: #764ba2;
+            margin-bottom: 20px;
+            font-size: 28px;
+            text-align: center;
+        }
+
+        .help-section {
+            margin-bottom: 20px;
+        }
+
+        .help-section h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .help-section p, .help-section li {
+            color: #333;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .help-section ul {
+            margin-left: 20px;
+        }
+
+        .help-section li {
+            margin-bottom: 5px;
+        }
+
+        .close-help {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 30px;
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close-help:hover {
+            color: #333;
+        }
+
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: #0f0;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            display: none;
+            max-width: 400px;
+        }
+
+        .debug-info.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎲 New Yorker Caption Contest Game 🎲</h1>
+    
+    <div class="help-overlay" id="helpOverlay">
+        <div class="help-content">
+            <button class="close-help" onclick="toggleHelp()">×</button>
+            <h2>How to Play</h2>
+            <div class="help-section">
+                <h3>🎯 Goal</h3>
+                <p>Match each cartoon with its correct caption by swapping them around.</p>
+            </div>
+            <div class="help-section">
+                <h3>🎮 Controls</h3>
+                <ul>
+                    <li><strong>Play Face:</strong> Start solving the current face</li>
+                    <li><strong>Drag & Drop:</strong> Swap captions between cartoons</li>
+                    <li><strong>Arrow buttons/keys:</strong> Rotate the cube</li>
+                    <li><strong>Hover on image:</strong> Enlarge cartoon (drag to pan)</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3>✅ Winning</h3>
+                <p>Correct matches turn green with a checkmark. Complete all 9 to win!</p>
+            </div>
+            <div class="help-section">
+                <h3>🔘 Buttons</h3>
+                <ul>
+                    <li><strong>Next:</strong> Jump to next unsolved face</li>
+                    <li><strong>New Cube:</strong> Generate fresh puzzles</li>
+                    <li><strong>Reset:</strong> Fix any drag issues</li>
+                    <li><strong>Solve:</strong> Show the solution</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3>📊 Stats</h3>
+                <ul>
+                    <li><strong>Time:</strong> How long you've been solving</li>
+                    <li><strong>Swaps:</strong> Number of caption swaps you've made</li>
+                    <li><strong>Min:</strong> Theoretical minimum swaps needed (optimal solution)</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3>💡 Tips</h3>
+                <p>Try to match the minimum swaps for a perfect solve! Each face has 9 cartoons from New Yorker contests.</p>
+                <p>Press 'D' to toggle debug mode and see drag events in real-time.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="game-container">
+        <div class="cube-section">
+            <div class="nav-controls">
+                <div class="nav-btn" onclick="rotateCube('up')">▲</div>
+                <div class="nav-row">
+                    <div class="nav-btn" onclick="rotateCube('left')">◄</div>
+                    <div class="nav-btn" onclick="rotateCube('right')">►</div>
+                </div>
+                <div class="nav-btn" onclick="rotateCube('down')">▼</div>
+            </div>
+
+            <div class="cube-container" id="cubeContainer">
+                <div class="cube" id="cube">
+                    <div class="cube-face front" data-face="0">
+                        <div class="mode-badge">PLAYING</div>
+                        <div class="face-content" data-face-content="0"></div>
+                    </div>
+                    <div class="cube-face back" data-face="1">
+                        <div class="mode-badge">PLAYING</div>
+                        <div class="face-content" data-face-content="1"></div>
+                    </div>
+                    <div class="cube-face right" data-face="2">
+                        <div class="mode-badge">PLAYING</div>
+                        <div class="face-content" data-face-content="2"></div>
+                    </div>
+                    <div class="cube-face left" data-face="3">
+                        <div class="mode-badge">PLAYING</div>
+                        <div class="face-content" data-face-content="3"></div>
+                    </div>
+                    <div class="cube-face top" data-face="4">
+                        <div class="mode-badge">PLAYING</div>
+                        <div class="face-content" data-face-content="4"></div>
+                    </div>
+                    <div class="cube-face bottom" data-face="5">
+                        <div class="mode-badge">PLAYING</div>
+                        <div class="face-content" data-face-content="5"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-info-bar">
+            <div class="face-indicator" id="faceIndicator">Front Face</div>
+            
+            <div class="stats-group">
+                <div class="stat-item">
+                    <span class="stat-label">Time:</span>
+                    <span class="stat-value" id="timerDisplay">0s</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Swaps:</span>
+                    <span class="stat-value" id="swapCountDisplay">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Min:</span>
+                    <span class="stat-value" id="minSwapsDisplay">0</span>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="action-btn help-btn" onclick="toggleHelp()">How to Play</button>
+                <button class="action-btn select-btn" onclick="togglePlayMode()">
+                    <span id="playButtonText">Play Face</span>
+                </button>
+                <button class="action-btn shuffle-btn" onclick="nextUnsolvedFace()">Next</button>
+                <button class="action-btn new-cube-btn" onclick="newCube()">New Cube</button>
+                <button class="action-btn reset-btn" onclick="resetDrag()">Reset</button>
+                <button class="action-btn solve-btn" onclick="solvePuzzle()">Solve</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="win-overlay" id="winOverlay">
+        <div class="win-message">🎉 Face Complete! 🎉</div>
+        <div class="win-stats" id="winStats"></div>
+    </div>
+    
+    <div class="debug-info" id="debugInfo"></div>
+
+    <script>
+        // Caption data from CSV (contests 700-885) - complete dataset with all quote errors fixed
+        const captionData = {
+            // Original contests 700-720
+            "700":["Looks like you're already familiar with the side effects.","You're going to need some help with these suppositories.","I take it you already know about the side effects."],
+            "701":["I just want to make sure 'mousse' isn't a typo.","I was considering ordering the cheese board but that seems like a trap.","I've been coming to this place since it was a hole in the wall."],
+            "702":["You asked if I wanted product in my hair...and I said a smidgeon...a smidgeon, Ralph.","Could you trim the sides but leave it feathered on top?","I switched from Pantene to Dove"],
+            "703":["We have them between all tables, it encourages social distancing.","He's acting up because your purse was somebody he knew","You can tell whether it's an alligator or a crocodile by whether you see it later or after a while."],
+            "704":["Forget everything you've ever thought about elevator music.","You're in 702? Awesome, we're in 704","Neither one of us plays, but we find they keep people at least six feet away."],
+            "706":["Well,I know what Duke Ellington would do.","Of course... we wait forever, then two come at the same time.","And to think, this was Times Square a month ago."],
+            "707":["This was easier to carry when it was flat.","Next week I'll move Heaven for you.","It's mostly water weight"],
+            "708":["A better question is, why aren't YOU wearing a mask?","I'm off to Walmart. Do you need anything?","Does this make me look middle aged?"],
+            "709":["You might want to try the stairs. This one only goes down and takes an eternity.","I just pressed 2020","Kellyanne! We've been waiting for you."],
+            "710":["Remember when he was just a humming bird?","That's what happens when you make a nest with bluegrass.","This next song is for the two idiots with the binoculars."],
+            "711":["Yes, it's a home game. Of course it's a home game. Everything's a fricking home game.","I'm really looking for ward to the away games.","3rd month, nobody out."],
+            "712":["So...we had a bad 1st quarter. It's not the end of the world.","Tell me about a time you identified a problem that others didn't see coming.","Final interview question-Where do you see yourself in five years?"],
+            "713":["...there's yer problem! ya gotta short circus!","Is it wise for the entire presidential administration to ride in one car?","On your way to the Republican National Convention, I see."],
+            "714":["At that moment Willow was consumed with three thoughts: she couldn't swim,they were on their third drink,and she was on her ninth life.","God, I cannot wait until they go back to work","It was times like these that Mr. Snuffles most regretted being declawed."],
+            "715":["The recipe said 'One egg, beaten.' I was lucky to get out alive.","No, you're thinking of my brother Humpty. I fell off the wagon.","In hindsight , I should have let the chicken go first."],
+            "716":["Could we have outstayed our welcome?","The listing did say kitchen to die for.","I've lost six pounds and a toe since starting this diet..."],
+            "717":["Well, at least up here we only have to feed it.","I think we got the better end of this pet-sharing deal.","I guess I misheard. I thought the realtor said there was 'a draft' in the apartment."],
+            "718":["I don't think 'dressage' means what you think it means.","I don't need your approval. I just need you to tie the laces.","It's genius! They'll be tracking 2 men on foot!"],
+            "719":["Ignore the 'Whites Only' sign.","...course you'll have to put some money into it.","If you want a side-by-side, you'll have to go to the suburbs."],
+            "720":["I changed my mind. It would look better on the other side.","Now imagine having to do that in heels","The blind date site stated you are Strong, upwardly mobile and persistent which sounded good at the time."],
+            // New contests 721-739
+            "721":["I can still vote by mail,you know.","My hair is never gonna grow that long before dinner time.","This is all very well, but where are YOU going to self-quarantine?"],
+            "722":["This is the only house I could find under a grand.","I don't know who was playing it, but he brought the House Down.","You were right. We should have requested a fiddler on the roof."],
+            "723":["Less woofer?","We should be able to finish the album today, as long as no one rings the doorbell.","A little more on the Woofer"],
+            "724":["'MEET ??' I heard 'EAT'.","I've been told there's a thesaurus here.","Mary Trump, your uncle sent me."],
+            "725":["Wait, dad! Your glasses!","I say we wait until apples are back in season.","Maybe we could do this via zoom?"],
+            "726":["Once they choose their queen, honey, it's really hard to change their minds.","The President says that we should ignore them they will just go away.","I asked you to go get two MOJITOS!!!"],
+            "727":["It's the closest you'll get to Manhattan in your price range.","You work remote, right?","And your nearest neighbors are light years away."],
+            "728":["Okay, okay. Fine, I'll fill out the census.","Six feet dude. Six. Feet.","Thank you for agreeing to meet remotely."],
+            "730":["I'm the only one commenting on your name, Dr. Katz?","Dr. R. O. Dent, I am happy to report that our experiment  using Bleach was 98% successful in eradicating the infestation in the White House!","It's an honor to be working with someone who was in on the ground floor of the research."],
+            "731":["With all due respect, Helen, you're gonna find crappy men in China, too","During next week's session we'll have you paint yourself into a corner.","Well, I think we did more than scratch the surface today"],
+            "732":["It's true, your honor. I slept with the witness.","And at what point did they threaten to beat the stuffing out of you?","Isn't it true, Mr. Bear, that you were in bed with my client on the night in question?"],
+            "733":["It seems you promised them herd immunity, Sir.","Every time we attempt a re-count we fall asleep.","You figured eating the black one wouldn't be noticed ??"],
+            "734":["This your last chance to come clean.","Boss is makin' us work from home now.","Stop fighting it kid, everyone eventually sings in the shower."],
+            "735":["It always ends in tiers......","I shouldn't be telling you this but I saw her last week on a different cake.","Actually, I'm vanilla. Red Velvet is my stripper name."],
+            "736":["You can advocate for wind power all you want, Randy, but you're not going to escape your fossil fuel destiny.","'You know, sometimes I look at you Dave and think our species is doomed.'","No one will ever wear that.  Not in 100 million years."],
+            "737":["I thought you said the cloud was secure.","We have a stalker.","Now that he's hacked the cloud, do you think he'll spill the beans?"],
+            "738":["Just to mess with him put them back on the tree.","Wait, did they say 'take the man and leave' or 'take the man and leaves?'","This is your first abduction, isn't it?"],
+            "739":["Of course we wanted a son. But we also wanted unconditional love.","When you've mastered 'sit' and 'stay' you'll be a Good Boy too","Let's think of a better word to call his mommy."],
+            // New contests 740-759
+            "740":["I hope she doesn't say 'charge'","The policy was 'You break it you bought it', and he ended up owning the place.","He was very excited to get the job. His wife is over the moon."],
+            "741":["Don't be fooled. He has a dark side.","I think it's just a phase.","When the moon's in the sky like a big winking eye, that's emoji."],
+            "742":["Sir, this is the Met. The Mets are down the street.","This is the watercolor gallery. We don't allow charcoal here.","That's not how artist-in-residence works."],
+            "743":["I've changed my mind. I love it.","Still not level.","Are you even listening to me?"],
+            "744":["Your going as a satellite dish? I'm going as a pilgrim.","As a Republican I have to wear it this way, otherwise it's impossible to stick my head up my ass.","Any place you'd like me to lick for you?"],
+            "745":["We probably should have done something about this last year when it was still three blocks away.","Thank goodness we salted the roads","We traced the slime trail back to Ted Cruz's house."],
+            "746":["I forgot what I came upstairs for.","Those better not be my good rocks.","On second thought, put them back in a circle."],
+            "747":["Just be glad he's not wearing his kilt today.","I think it's called an air B&B.","I just hope they don't put in a pool."],
+            "748":["I would prefer to go out the way we came in.","I usually wake up at this point.","Talk about being consumed by your work."],
+            "750":["It's good to be back in the field. It just wasn't the same working from home.","Every time they say 'baa' please stop saying 'humbug'.","Remember to check for faces—I once barked at a cotton bale for hours."],
+            "751":["If you see a fork in the road, avoid it.","If you jump up and down, it starts snowing.","My fish says you get used to it."],
+            "752":["Don't give them anything. It only encourages sequels.","Be careful, the one behind us is unabridged.","I think I took one of them to bed."],
+            "753":["Oh I'm sorry, maybe I'd move faster if SOMEONE didn't bite my leg off.","Hit me again with your cart and I'll hunt you down until the day I die.","If anyone asks, you're my support animal."],
+            "754":["Whoa, the new recruit went down the laundry chute.","I have a feeling there's a psychologist waiting down there.","After you - I'm out of shape."],
+            "755":["Yes Robert I bought a chair. I was sick of my options being between a rock and a hard place.","Do you want to go clubbing later?","Yes, the mammoth is free range."],
+            "756":["And just when I finally got comfortable in my own skin, she repainted the bedroom.","I'm referring you to another therapist. I'm afraid I can't see you any longer.","Patient failed to show for yet another session…"],
+            "757":["I thought partly cloudy with a chance of rage was a typo","Well it looks like my mother found out that you're not Jewish.","They banned him from Twitter, but he's still in the Cloud."],
+            "758":["Honey can you close the door? I'm in a meeting.","I'm secretary of the exterior.","My company rehired me as an outside consultant."],
+            "759":["They call it kitsch-and-release.","Well, well, well. If it isn't the one who got away.","If Bob calls and offers you a position on the board — don't take it."],
+            // New contests 761-779
+            "761":["He's the only one who can legally hand out refreshments to voters in Georgia.","One soul for half a dozen lemons is still cheaper than Whole Foods.","He says I don't have to worry about returning the dish."],
+            "762":["First, let me bring you up to speed.","You're cold blooded. You belong in upper management.","Well for starters, you were 4 days late to the interview."],
+            "763":["You can use the loaner corn dog while you wait. Can you drive a stick?","How long has the 'Check Condiments' light been on?","I can only give you a ball park estimate."],
+            "764":["If you're from Uber Eats, just sprinkle it in.","Congratulations on making it this far. Just one more task and you can reset your password.","To be fair, you're not what I was expecting either."],
+            "765":["It was then that Marcus realized that his message in a bottle requesting beer and ice may have contained a single yet crucial typo.","Damn. I literally said I'd deny climate change until it comes and bites me in the ass.","Funny, I was just telling myself things couldn't possibly be worse."],
+            "766":["Well played, Fran. The tuba will be gone by morning.","Sorry. I misunderstood the 'huge vacuum in your life' remark.","What a coincidence! I couldn't sleep either!"],
+            "767":["You seem really nice - most of the guys I date are clowns.","Kids? I love kids. Hand me one.","My biggest fan was my late husband."],
+            "768":["My left or your left?","I always knew we'd wind up together.","Oh dear, that's my wife! Act casual."],
+            "769":["Trying to make it feel more like Amazon. I mean, the Amazon.","His favorite book is A Farewell to Arms, so don't get too close.","His name's Readers Digest."],
+            "770":["I guess 'trail lawyer' wasn't a typo after all.","I found them Sir. No, they don't want to extend their vehicle's warranty.","He's an adventure capitalist."],
+            "771":["Three more dollars and we can order a pizza.","When you told me your ex wanted every last dime, I had no idea she would take it this far.","This is not what I meant when I said I was looking for change."],
+            "772":["This isn't what I meant when I said to go towards the light.","Let's just say the milk isn't the only thing that's about to expire.","Eat whatever you want. It's a bus that kills you."],
+            "773":["„.dnos ǝɥʇ ɹǝpɹo ʇ'uoᗡ„","It appears the tables have turned.","We should've ordered our drinks straight up."],
+            "774":["O, hi Carol. I didn't expect it would be an ex that marked the spot.","To be fair, you don't look like your profile picture either.","You're a sight for a sore eye."],
+            "775":["Can't believe we're opening for Genesis.","I wish we had done the sex and drugs first.","They'll never know what we used our tiny arms for."],
+            "776":["He hasn't proposed yet, but he did give me a written estimate.","My other son is a mortician. Wanna see the basement?","It was tough to find a one room apartment with a garage but we got lucky."],
+            "777":["Amazon accidentally sent two.","It works fine, we're just no longer a nuclear family.","Already sold. Guy on the phone. Kim something."],
+            "778":["It's the closest Texas would let us get to sex ed.","Him? That's the guy who figured out how much wood a woodchuck could chuck.","We have ordered both from Amazon and we are going to see which comes first."],
+            "779":["I don't ask you how you squeezed into that sweater.","In my defense, the water dish was empty and the toilet lid was down","Now that you've sobered up, do you remember where you took the goldfish on their walk?"],
+            // New contests 785-800 (skipping 781-784 which are missing)
+            "785":["Come out with your hands up, wrists straight, fingers gently curved!","Looks like someone is here to settle a score.","Sheriff's not gonna like the sound of this."],
+            "786":["This is the homework your son alleges my client ate.","And finally, an option to extend his leash.","...and you understand, that while this is one year contract for you, it's a seven year contract for him."],
+            "787":["Of course I'm living in the past. Have you seen the present?!","Just had a thought. What if I put the wheel on the outside?","Are you trying to tell me that B.C. is a place in Canada?"],
+            "788":["You should have done that before you put it on.","I assume it's a destination wedding?","Or you could just get vaccinated."],
+            "789":["Do you have to come in here every time I turn on the light?","I really hope you make better use of your last two wishes.","What the hell is a midlife chrysalis?"],
+            "790":["You take a left at these lights. Go the the next junction. Spin around 10 times. Hit the wall. Then reverse back about 10 feet and it should be on your left.","Please let me know if you pass three toddlers traveling in a teacup.","Walter soon realized that he was not prepared for life in the fast lane."],
+            "791":["I'm pretty sure I wasn't their first choice.","And the acoustics make me sound like a German shepherd.","They'll eventually figure out I'm full grown."],
+            "792":["It seems someone else wrote a song called 'HELP'","Good news, you got into Juilliard","These reviews are all terrible, but 'washed up' really hurts."],
+            "793":["Teach a bear to shop and he will never have to fish again.","Could you toss it to me instead? I want to tell my wife I caught it.","It's an appetizer. I'm having people for dinner tonight."],
+            "794":["I told you no lawyer on earth would take our case.","It's worse than an invasion. It's an audit.","Oh, I thought Robert said he was practicing Martial law."],
+            "795":["His last words were 'I hope this goes straight to her hips.'","You mate it. We plate it.","I believe you're familiar with tonight's entrée."],
+            "796":["Turns out they only check to see if you return the shoes.","Apparently the floors are so thin you can hear a pin drop.","I think we need a longer apartment."],
+            "797":["Is this a Middle Age crisis?","If you think that's uncomfortable you should try wearing heels.","It says here that you're a free lancer."],
+            "798":["Sure, call Roadside Assistance. The more, the merrier.","You're gonna laugh—I actually had a mechanic for breakfast this morning.","Don't worry, you'll be running in no time."],
+            "799":["But enough about me, tell me about your lives.","The last time we did this, I woke up neutered.","I must say, when your profile said 'Must like cats' this isn't exactly what I was expecting…"],
+            "800":["He may need more time to develop.","How did they find this guy?","They drafted him sight unseen."],
+            // New contests 802-820 (801 and 821 are missing)
+            "802":["It was so much easier when everyone was still working from home.","Be careful. It's hot.","I'm surprised you didn't order wings."],
+            "803":["It's like new. The previous owner preferred the box it came in.","We call it 'The Trump,' for its empty red bottom and hideous yellow top.","Okay I'll grab some crayons and get started on the paper work."],
+            "804":["You're home early.","And that's how cryptocurrency works.","It just doesn't feel like anything I do impresses you anymore."],
+            "805":["When we were dating he climbed a skyscraper for me—now I can't even get him to take out the garbage.","Your mom and I think it may be time for you to get your own place.","I see... and is the gorilla with us in the room right now Ms. Johnson?"],
+            "806":["The castle looked bigger on Zillow.","Could you rub some WD-40 on my back?","Can I interest you in a one knight stand?"],
+            "807":["We use the males as a control group - they never ask for directions.","I wasn't sure if you said maze or maize, so I did both.","To accurately simulate the IKEA experience there is, in fact, no way out."],
+            "808":["Yeah, Florida was just getting too weird for us.","The U.S. Supreme Court repealed the law of gravity because it wasn't mentioned in the Constitution so we just took off with it.","No matter how far we go, your freaking parents always show up."],
+            "809":["Once the kids move out it'll get easier","Not so tiny now, is it?","Let me do the talking when your mother wakes up."],
+            "810":["Once you press your floor number, he'll never forget.","The zoo wants me to work from home.","Everyone ignores the elephant in the room, but take one on the elevator and everyone has something to say."],
+            "811":["I told the aquarium we'll be working remotely from now on.","Hey, nobody goes hunting for the Great Tan Whale.","Of course I turned off echolocation. I'm on vacation!"],
+            "812":["Pleasing people is all I know, but you wouldn't understand.","It's just so frustrating: every time I bring the ball back, he just throws it again.","It's easy for you to say; you always land on your feet."],
+            "813":["Sign the treaty, I'm out of quarters.","You have a choice. Stay here and face the harsh Russian winter with your entire army stranded and in disarray, or come home for lunch.","You know he lost, right?"],
+            "814":["It has unlimited data, unlimited minutes, with one string attached.","No, this is not a spam call. I checked the label.","Before I send someone out there, please unplug the string from the back of your can then plug it firmly back in."],
+            "815":["This place is known for serving local produce.","Appears to be a food group.","Elbows on the table. Another reason I don't like broccoli."],
+            "816":["My ex-wife got most of the house.","So Mason, is that a family name?","You were more fun when you were plastered."],
+            "817":["They tell you to reach for these, but never what to do if you actually catch one.","It turns out they're just cardboard covered in tin foil.","Some of us pursue stardom, while others have stardom thrust upon them."],
+            "818":["You told me to come back when I got my act together!","I preferred when it was just the elephant in the room","Circuits, Alexa! I said, 'Order circuits!'"],
+            "819":["My wife said, 'Try them on, it won't kill you.'","So my wife says, 'Would it kill you to wear something colorful?'","I swore I would never be caught dead in these pants, yet here we are."],
+            "820":["You've got it upside down.","Am I a narcissist if I tell you I see myself in every one of these?","You are holding it upside down."],
+            // New contests 822-844 (821 is missing, consistent with existing gaps) - All fixed
+            "822":["…but the third planet was juuuuust right!","No, no, no, darling. You weren't adopted … you were abducted.","I should mention at this point that H.G. Wells was wrong about a lot of stuff."],
+            "823":["I'm going to need to turn somebody into a pilot.","I call this next trick 'Overbooked Flight', and I will need three volunteers from the audience.","And for my next trick I will turn a twenty dollar bill into a bag of seven almonds."],
+            "824":["Looks like I caught you at the tail end of your meal.","The horns were painful going in?  Just wait.","You do realize that was a lawn ornament."],
+            "825":["Just remember, you can be empty headed and orange and still succeed in America.","Thanks for carving out a little face time.","First the good news. Nobody's getting canned."],
+            "826":["I love it when they wake up and ask what year this is.","For patient comfort, we try to keep the room in the mid-seventies.","I'm detecting a beat."],
+            "827":["I'm from the future. Vote carefully.","I'm an evolution denier.","You get so much more with a smile and a club, than you do with just a smile."],
+            "828":["They want to know if we lost a ball on the Moon in 1971?","It wants our leader.  Right now that's you by 2 strokes.","This is still more believable than your hole-in-one story."],
+            "829":["I was young and needed the money.","She's definitely had work done.","It's a trick.  Remember what happened to the deer?"],
+            "830":["Well of course I'm being defensive!","Can we not talk about goals this week?","Yes, I KNOW I'm blocking. That's the whole point."],
+            "831":["Any happily married people here tonight?","And a special shoutout to my lovely wife who's in the audience tonight.","This next one goes out to a special lady in the audience. You know who you are."],
+            "832":["We will not negotiate with terriers.","Re-treat!","I have met the enemy, and he's a good boy!"],
+            "833":["This is the option covered by your insurance","It's going to work a lot faster than the prune juice.","We find it works quicker than the laxative"],
+            "834":["They recommend the beef.","Your eggs should be out any minute now.","Our early bird specials."],
+            "835":["Sir, this is a Whole Foods. The only payment we accept is an arm and a leg.","If you're going to bury that here, you need to buy something.","Finally, a good tipper."],
+            "836":["You're a Holstein? Do you know the Greenblatts from Jersey City?","Let me get this straight, you're food, clothing and a beverage?","I find it hard to believe you jumped over anything."],
+            "837":["I suspect vowel play","I have a feeling all will be revealed tomorrow.","Why couldn't he have been murdered on a Monday."],
+            "838":["It's a win-win. He was delicious, and now we've got a flashlight.","And all that was left was a giant carbon footprint","And then he saw something that made his blood run warm."],
+            "839":["I don't care what Satan lets his kids do.","When I was young, we played with 9 planets.","It's been 4.5 billion years; will you please just take your shot?!"],
+            "840":["The label said 'Lay flat to iron.'","I'm still taking you to the cleaners.","Now might be a good time to grab that sock behind the washer."],
+            "841":["This is too easy. Let's put them in an IKEA.","And to think, all we did was change their diet from Velveeta to Brie.","Nothing has sold yet, but we've gotten a few nibbles."],
+            "842":["Duck! Just kidding, watch your step.","I applied online, they just asked if I knew how to fly.","If we hit water, remember: be calm on the surface, paddle like hell underneath."],
+            "843":["'Leave the circus,' you said. 'You'll never use those skills,' you said.","Turns out I can let you go.","My therapist says I need to let go."],
+            "844":["You can leave your label on.","First the good news...you've aged well.","The good news is, you've aged well . . . ."],
+            // New contests 846-862 (845 is missing, consistent with existing gaps)
+            "846":["Now I'm starting to believe the mailman's side of the story.","His last owner died? Did they say how?","And yet he's still afraid of the vacuum."],
+            "847":["I absolutely love what you've done with your air.","Who does your air?","I couldn't help but notice you waving to me from across the room."],
+            "848":["Look! The first Robinsons of Spring.","Is it me, or do you think they should have pulled the parachute chord by this point?","The Neighborhood Watch is getting out of hand."],
+            "849":["How do I look? Yea or neigh?","It's for an interview. I'm looking for a stable job.","I'd like my wife's opinion. She's over in the bridle section."],
+            "850":["If you wanted me to jump, you could've just pushed me.","I prefer soul.","I'm about to be at your door!"],
+            "851":["I'm here to conduct your exit interview.","At this point, I'm no longer sure which one of us they're testing.","The restroom?  Third door on your right, then left, left again, then right, right and left. You can't miss it."],
+            "852":["It's OK, as long as I don't sit on the Jalapenos.","I got tired of Pad Thai.","It was a special offer so I jumped on it."],
+            "853":["Who knew the Swiss had a navy?","Weapons down. It's the Swiss.","Wow, and that's just the tip of the Jarlsberg!"],
+            "854":["Are you very satisfied, somewhat satisfied, or not at all satisfied with your pool experience?","The invite said to wear a suit.","I'm usually naked in this dream."],
+            "855":["I can't get a dog but you adopt a highway.","According to Google Maps, I can get to the bathroom in 30 seconds.","We should get started on dinner before rush hour."],
+            "856":["You don't have to say 'excuse me' every single time.","Move to Arizona he says. What could go wrong he says.","My ear keeps popping."],
+            "857":["That's nice.  My husband is a carpenter too.","Ladies, ant, gentlemen, this is your captain speaking.","Sarah quickly learnt the difference between extra-leg room  and extra leg-room"],
+            "858":["When I said 'wait till you see these puppies,' what did you think I meant?","It just depends on what you're looking for -- unconditional adoration or soul-crushing disregard.","I Shih Tzu not."],
+            "859":["For heavens sake George, let's just split the lunch bill five ways.","Can I show you something real quick?","I do this to scare the students, I actually have no idea what it means."],
+            "860":["And I'm the dirty one?","They fly all this way just to say they ate in the Hamptons.","I could never eat straight out of the can."],
+            "861":["Welcome to the Mild, Mild West!","I'm tempted to shoot them both.","It's my fault.  I said they didn't have the balls to fight."],
+            "862":["If you watch 'Gone With the Wind' with red glasses, the South wins.","I'm glad we got the progressive lenses.","He's still orange."],
+            // New contests 867-885 (863-866, 869-873, 875-879, 881-882 are missing)
+            "867":["I heard I'm being considered for a cabinet post.","Before we get married I should tell you I have a woodpecker.","I got the job after the other guy got the axe."],
+            "868":["Lately, my meltdowns are coming more frequently.","My friends complain that I'm frosty and self serving.","I scream, you scream, we all scream. It's like no one has actual conversations anymore."],
+            "874":["Not as surprising as watching you pick up his poo.","Adopt-a- Planet. We got Earth.","You haven't seen a set of keys, have you?"],
+            "880":["Ticking?  Actually I find your breathing more annoying.","Oh my, I just noticed the time.","I think you're making things out to be bigger than they are."],
+            "883":["Do you ever get the feeling you're wasting one of your lives?","That reminds me—your mother called this morning.","Maul a man and you eat for a day, teach a man to pamper you…"],
+            "884":["What do you mean, 'we can do this the smooth way or the crunchy way'...?!","My old nemesis.  After all these years I'm an empty shell and you are a shadow of your former self.","The cane is made of ivory.  Why do you ask?"],
+            "885":["Upset? I'm beside myself!","Maybe warming up first wasn't such a good idea.","My whole life flashed before my eyes. Monday, Tuesday, all of it."]
+        };
+        
+        // Cartoon metadata for all contests (700-885, with various gaps)
+        const cartoonMetadata = [];
+        const contestNumbers = Object.keys(captionData).map(n => parseInt(n)).sort((a,b) => a-b);
+        contestNumbers.forEach((contestNum, index) => {
+            cartoonMetadata.push({
+                id: index + 1,
+                contestNumber: contestNum,
+                imageFile: `${contestNum}.jpg`
+            });
+        });
+
+        // Game state variables
+        let currentFaceIndex = 0;
+        let isPlaying = false;
+        let facePuzzles = [];
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let swapCount = 0;
+        let initialMinSwaps = 0;
+        let recentlyUsedCartoons = [];
+        let debugMode = false;
+        let solvedPuzzleCount = 0; // Track how many puzzles have been solved
+
+        // Drag state
+        let dragState = {
+            element: null,
+            index: null,
+            face: null
+        };
+
+        const faceNames = ['Front', 'Back', 'Right', 'Left', 'Top', 'Bottom'];
+        
+        const faceTransitions = {
+            0: { up: 4, down: 5, left: 3, right: 2 },
+            1: { up: 4, down: 5, left: 2, right: 3 },
+            2: { up: 4, down: 5, left: 0, right: 1 },
+            3: { up: 4, down: 5, left: 1, right: 0 },
+            4: { up: 1, down: 0, left: 3, right: 2 },
+            5: { up: 0, down: 1, left: 3, right: 2 }
+        };
+
+        // Debug logger
+        function debugLog(message) {
+            if (debugMode) {
+                const debugInfo = document.getElementById('debugInfo');
+                const time = new Date().toLocaleTimeString();
+                debugInfo.textContent = `[${time}] ${message} | Solved: ${solvedPuzzleCount}`;
+                console.log(`[DEBUG] ${message}`);
+            }
+        }
+
+        // Set up event delegation for drag and drop
+        function setupDragAndDrop() {
+            const cubeContainer = document.getElementById('cubeContainer');
+            
+            // Remove any existing listeners first (in case of re-initialization)
+            const newContainer = cubeContainer.cloneNode(true);
+            cubeContainer.parentNode.replaceChild(newContainer, cubeContainer);
+            
+            // Get the new container reference
+            const container = document.getElementById('cubeContainer');
+            
+            // Use event delegation - attach listeners to container, not individual elements
+            container.addEventListener('dragstart', handleDragStart, false);
+            container.addEventListener('dragenter', handleDragEnter, false);
+            container.addEventListener('dragleave', handleDragLeave, false);
+            container.addEventListener('dragover', handleDragOver, false);
+            container.addEventListener('drop', handleDrop, false);
+            container.addEventListener('dragend', handleDragEnd, false);
+            
+            debugLog('Drag event listeners attached to container (fresh)');
+        }
+
+        function handleDragStart(e) {
+            // Check if the target is a caption
+            if (!e.target.classList.contains('cube-caption')) {
+                return;
+            }
+            
+            // Check if dragging is allowed (must have draggable class)
+            if (!e.target.classList.contains('draggable')) {
+                e.preventDefault();
+                debugLog(`Drag prevented - no draggable class on caption`);
+                return;
+            }
+            
+            const face = parseInt(e.target.dataset.face);
+            if (face !== currentFaceIndex) {
+                e.preventDefault();
+                debugLog(`Drag prevented - wrong face (${face} vs ${currentFaceIndex})`);
+                return;
+            }
+            
+            if (!isPlaying) {
+                e.preventDefault();
+                debugLog(`Drag prevented - not playing`);
+                return;
+            }
+            
+            dragState.element = e.target;
+            dragState.index = parseInt(e.target.dataset.index);
+            dragState.face = face;
+            
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', dragState.index.toString());
+            
+            debugLog(`Drag started: face ${face}, index ${dragState.index}`);
+        }
+
+        function handleDragEnter(e) {
+            if (!e.target.classList.contains('cube-caption') || !dragState.element) return;
+            if (parseInt(e.target.dataset.face) !== currentFaceIndex) return;
+            if (e.target === dragState.element) return;
+            
+            e.preventDefault();
+            e.target.closest('.cube-cartoon').classList.add('drag-over');
+            debugLog(`Drag enter: index ${e.target.dataset.index}`);
+        }
+
+        function handleDragLeave(e) {
+            if (!e.target.classList.contains('cube-caption')) return;
+            
+            e.target.closest('.cube-cartoon')?.classList.remove('drag-over');
+        }
+
+        function handleDragOver(e) {
+            if (!e.target.classList.contains('cube-caption') || !dragState.element) return;
+            if (parseInt(e.target.dataset.face) !== currentFaceIndex) return;
+            
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDrop(e) {
+            if (!e.target.classList.contains('cube-caption') || !dragState.element) return;
+            if (parseInt(e.target.dataset.face) !== currentFaceIndex) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const dropIndex = parseInt(e.target.dataset.index);
+            const dragIndex = dragState.index;
+            
+            if (dropIndex === dragIndex) {
+                e.target.closest('.cube-cartoon')?.classList.remove('drag-over');
+                return;
+            }
+            
+            // Perform the swap
+            const puzzle = facePuzzles[currentFaceIndex];
+            const tempCaption = puzzle[dragIndex].currentCaption;
+            puzzle[dragIndex].currentCaption = puzzle[dropIndex].currentCaption;
+            puzzle[dropIndex].currentCaption = tempCaption;
+            
+            // Update the isCorrect flags
+            puzzle[dragIndex].isCorrect = (puzzle[dragIndex].currentCaption === puzzle[dragIndex].correctCaption);
+            puzzle[dropIndex].isCorrect = (puzzle[dropIndex].currentCaption === puzzle[dropIndex].correctCaption);
+            
+            swapCount++;
+            debugLog(`Swap completed: ${dragIndex} <-> ${dropIndex}`);
+            
+            // Update only the captions, not the whole face
+            updateCaptions(currentFaceIndex);
+            updateStats();
+            checkWin();
+            
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            if (!e.target.classList.contains('cube-caption')) return;
+            
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.cube-cartoon.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+            
+            // Clear drag state
+            dragState.element = null;
+            dragState.index = null;
+            dragState.face = null;
+            
+            debugLog('Drag ended and state cleared');
+        }
+
+        function initializeCube() {
+            facePuzzles = [];
+            for (let i = 0; i < 6; i++) {
+                facePuzzles.push(generatePuzzleForFace());
+            }
+            renderAllCubeFaces();
+            updateCubePosition();
+        }
+
+        function generatePuzzleForFace() {
+            const availableCartoons = cartoonMetadata.filter(cartoon => 
+                !recentlyUsedCartoons.includes(cartoon.contestNumber)
+            );
+            
+            const cartoonsToUse = availableCartoons.length >= 9 ? availableCartoons : cartoonMetadata;
+            const shuffled = [...cartoonsToUse].sort(() => Math.random() - 0.5);
+            const selected = shuffled.slice(0, 9);
+            
+            selected.forEach(cartoon => {
+                if (!recentlyUsedCartoons.includes(cartoon.contestNumber)) {
+                    recentlyUsedCartoons.push(cartoon.contestNumber);
+                }
+            });
+            
+            const maxRecentSize = 160; // Increased to handle 158 total cartoons
+            if (recentlyUsedCartoons.length > maxRecentSize) {
+                recentlyUsedCartoons = recentlyUsedCartoons.slice(-maxRecentSize);
+            }
+            
+            const puzzleData = [];
+            for (const cartoon of selected) {
+                const contestNum = cartoon.contestNumber;
+                if (captionData[contestNum]) {
+                    const captions = captionData[contestNum];
+                    const correctCaption = captions[Math.floor(Math.random() * captions.length)];
+                    
+                    puzzleData.push({
+                        id: cartoon.id,
+                        contestNumber: contestNum,
+                        imageFile: cartoon.imageFile,
+                        correctCaption: correctCaption,
+                        currentCaption: "",
+                        isCorrect: false
+                    });
+                }
+            }
+            
+            // Derange captions
+            const correctCaptions = puzzleData.map(p => p.correctCaption);
+            let shuffledCaptions = [...correctCaptions].sort(() => Math.random() - 0.5);
+            
+            let attempts = 0;
+            while (attempts < 50) {
+                let hasFixedPoint = false;
+                for (let i = 0; i < puzzleData.length; i++) {
+                    if (shuffledCaptions[i] === correctCaptions[i]) {
+                        hasFixedPoint = true;
+                        shuffledCaptions.sort(() => Math.random() - 0.5);
+                        break;
+                    }
+                }
+                if (!hasFixedPoint) break;
+                attempts++;
+            }
+            
+            puzzleData.forEach((p, i) => {
+                p.currentCaption = shuffledCaptions[i];
+            });
+            
+            return puzzleData;
+        }
+
+        // New function to update only captions without re-rendering images
+        function updateCaptions(faceIndex) {
+            const puzzle = facePuzzles[faceIndex];
+            const faceContent = document.querySelector(`[data-face-content="${faceIndex}"]`);
+            if (!faceContent) return;
+            
+            const cartoonBoxes = faceContent.querySelectorAll('.cube-cartoon');
+            
+            cartoonBoxes.forEach((box, index) => {
+                const cartoon = puzzle[index];
+                
+                // Update caption text
+                const captionDiv = box.querySelector('.cube-caption');
+                if (captionDiv) {
+                    captionDiv.textContent = cartoon.currentCaption;
+                }
+                
+                // Update correct status
+                cartoon.isCorrect = (cartoon.currentCaption === cartoon.correctCaption);
+                if (cartoon.isCorrect) {
+                    box.classList.add('correct');
+                } else {
+                    box.classList.remove('correct');
+                }
+            });
+        }
+
+        function renderCubeFace(faceIndex, puzzleData) {
+            const faceContent = document.querySelector(`[data-face-content="${faceIndex}"]`);
+            if (!faceContent) {
+                debugLog(`ERROR: Face content not found for face ${faceIndex}`);
+                return;
+            }
+            
+            faceContent.innerHTML = '';
+            
+            puzzleData.forEach((cartoon, cartoonIndex) => {
+                const cartoonBox = document.createElement('div');
+                cartoonBox.className = 'cube-cartoon';
+                cartoonBox.setAttribute('data-face', faceIndex);
+                cartoonBox.setAttribute('data-index', cartoonIndex);
+                
+                // Update the isCorrect flag in the cartoon object
+                cartoon.isCorrect = (cartoon.currentCaption === cartoon.correctCaption);
+                
+                if (cartoon.isCorrect) {
+                    cartoonBox.classList.add('correct');
+                }
+                
+                const imageDiv = document.createElement('div');
+                imageDiv.className = 'cube-image';
+                
+                // For demo/preview, always show placeholder initially
+                // In production with real images, this will be replaced when image loads
+                imageDiv.innerHTML = `<div class="image-placeholder" style="background: linear-gradient(135deg, #e8e8e8 0%, #f5f5f5 100%); padding: 25px 10px;">
+                    <div style="font-size: 24px; color: #666; margin-bottom: 5px;">🖼️</div>
+                    <div style="font-weight: bold; color: #444;">Contest #${cartoon.contestNumber}</div>
+                    <div style="font-size: 11px; color: #888; margin-top: 3px;">Image: ${cartoon.imageFile}</div>
+                </div>`;
+                
+                // Try to load the actual image
+                const img = document.createElement('img');
+                img.src = cartoon.imageFile;
+                img.draggable = false;
+                img.onload = function() {
+                    // If image loads successfully, replace placeholder
+                    imageDiv.innerHTML = '';
+                    imageDiv.appendChild(img);
+                    
+                    // Add pan functionality for enlarged images
+                    let isPanning = false;
+                    let startX = 0, startY = 0;
+                    let translateX = 0, translateY = 0;
+                    
+                    imageDiv.addEventListener('mousedown', (e) => {
+                        if (imageDiv.matches(':hover')) {
+                            isPanning = true;
+                            imageDiv.classList.add('panning');
+                            startX = e.clientX - translateX;
+                            startY = e.clientY - translateY;
+                            e.preventDefault();
+                        }
+                    });
+                    
+                    imageDiv.addEventListener('mousemove', (e) => {
+                        if (isPanning) {
+                            translateX = e.clientX - startX;
+                            translateY = e.clientY - startY;
+                            img.style.transform = `scale(1.75) translate(${translateX}px, ${translateY}px)`;
+                            e.preventDefault();
+                        }
+                    });
+                    
+                    imageDiv.addEventListener('mouseup', () => {
+                        isPanning = false;
+                        imageDiv.classList.remove('panning');
+                    });
+                    
+                    imageDiv.addEventListener('mouseleave', () => {
+                        isPanning = false;
+                        imageDiv.classList.remove('panning');
+                        translateX = 0;
+                        translateY = 0;
+                        img.style.transform = '';
+                    });
+                };
+                // If image fails, keep the placeholder (already shown)
+                
+                const captionDiv = document.createElement('div');
+                captionDiv.className = 'cube-caption';
+                captionDiv.textContent = cartoon.currentCaption;
+                captionDiv.setAttribute('data-face', faceIndex);
+                captionDiv.setAttribute('data-index', cartoonIndex);
+                
+                // ALWAYS set draggable to true for HTML5 drag API
+                captionDiv.draggable = true;
+                
+                // Add draggable class only if playing and on current face
+                if (isPlaying && faceIndex === currentFaceIndex) {
+                    captionDiv.classList.add('draggable');
+                }
+                
+                const checkDiv = document.createElement('div');
+                checkDiv.className = 'cube-check';
+                checkDiv.textContent = '✓';
+                
+                const contestNum = document.createElement('div');
+                contestNum.className = 'contest-number';
+                contestNum.textContent = `#${cartoon.contestNumber}`;
+                
+                cartoonBox.appendChild(imageDiv);
+                cartoonBox.appendChild(captionDiv);
+                cartoonBox.appendChild(checkDiv);
+                cartoonBox.appendChild(contestNum);
+                
+                faceContent.appendChild(cartoonBox);
+            });
+            
+            debugLog(`Face ${faceIndex} rendered with ${puzzleData.length} cartoons, playing=${isPlaying}`);
+        }
+        
+        function updateDragCapabilities() {
+            // Update the draggable class on all captions
+            document.querySelectorAll('.cube-caption').forEach(caption => {
+                const face = parseInt(caption.dataset.face);
+                
+                // Always keep draggable=true for HTML5 drag API
+                caption.draggable = true;
+                
+                // Control actual dragging via the class
+                if (isPlaying && face === currentFaceIndex) {
+                    caption.classList.add('draggable');
+                } else {
+                    caption.classList.remove('draggable');
+                }
+            });
+            
+            debugLog(`Drag capabilities updated - Playing: ${isPlaying}, Face: ${currentFaceIndex}`);
+        }
+
+        function renderAllCubeFaces() {
+            for (let i = 0; i < 6; i++) {
+                renderCubeFace(i, facePuzzles[i]);
+            }
+        }
+
+        function rotateCube(direction) {
+            const nextFace = faceTransitions[currentFaceIndex][direction];
+            if (nextFace !== undefined) {
+                if (isPlaying) {
+                    togglePlayMode();
+                }
+                
+                currentFaceIndex = nextFace;
+                updateCubePosition();
+                document.getElementById('faceIndicator').textContent = `${faceNames[currentFaceIndex]} Face`;
+                
+                // Only re-render the new current face to avoid affecting other faces
+                renderCubeFace(currentFaceIndex, facePuzzles[currentFaceIndex]);
+                updateDragCapabilities();
+                updateStats();
+            }
+        }
+
+        function updateCubePosition() {
+            const cube = document.getElementById('cube');
+            let rotateX = 0, rotateY = 0;
+            
+            switch(currentFaceIndex) {
+                case 0: rotateX = 0; rotateY = 0; break;
+                case 1: rotateX = 0; rotateY = 180; break;
+                case 2: rotateX = 0; rotateY = -90; break;
+                case 3: rotateX = 0; rotateY = 90; break;
+                case 4: rotateX = -90; rotateY = 0; break;
+                case 5: rotateX = 90; rotateY = 0; break;
+            }
+            
+            cube.style.transform = `translateZ(-350px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        }
+
+        function togglePlayMode() {
+            isPlaying = !isPlaying;
+            
+            document.querySelectorAll('.cube-face').forEach(f => f.classList.remove('active'));
+            
+            if (isPlaying) {
+                document.querySelectorAll('.cube-face')[currentFaceIndex].classList.add('active');
+                document.getElementById('playButtonText').textContent = 'Stop Playing';
+                startTimer();
+                swapCount = 0;
+                initialMinSwaps = calculateMinimumSwaps();
+                updateDragCapabilities();
+                debugLog('Play mode started');
+            } else {
+                document.getElementById('playButtonText').textContent = 'Play Face';
+                stopTimer();
+                updateDragCapabilities();
+                debugLog('Play mode stopped');
+            }
+            
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('swapCountDisplay').textContent = swapCount;
+            
+            const puzzle = facePuzzles[currentFaceIndex];
+            const isSolved = puzzle && puzzle.every(c => c.currentCaption === c.correctCaption);
+            
+            if (isSolved && initialMinSwaps > 0) {
+                document.getElementById('minSwapsDisplay').textContent = initialMinSwaps;
+            } else {
+                const minSwaps = calculateMinimumSwaps();
+                document.getElementById('minSwapsDisplay').textContent = minSwaps;
+            }
+        }
+
+        function calculateMinimumSwaps() {
+            const puzzle = facePuzzles[currentFaceIndex];
+            const posMap = new Map();
+            puzzle.forEach((cartoon, index) => {
+                posMap.set(cartoon.correctCaption, index);
+            });
+            
+            const visited = new Array(puzzle.length).fill(false);
+            let cycles = 0;
+            
+            for (let i = 0; i < puzzle.length; i++) {
+                if (!visited[i]) {
+                    cycles++;
+                    let j = i;
+                    while (!visited[j]) {
+                        visited[j] = true;
+                        const currentCaption = puzzle[j].currentCaption;
+                        j = posMap.get(currentCaption);
+                    }
+                }
+            }
+            
+            return puzzle.length - cycles;
+        }
+
+        function checkWin() {
+            const puzzle = facePuzzles[currentFaceIndex];
+            const allCorrect = puzzle.every(c => c.currentCaption === c.correctCaption);
+            
+            if (allCorrect) {
+                solvedPuzzleCount++; // Increment the solved counter
+                stopTimer();
+                
+                const minSwaps = initialMinSwaps > 0 ? initialMinSwaps : calculateMinimumSwaps();
+                
+                const winOverlay = document.getElementById('winOverlay');
+                document.getElementById('winStats').textContent = 
+                    `Time: ${secondsElapsed}s | Swaps: ${swapCount} | Min possible: ${minSwaps}`;
+                winOverlay.classList.add('show');
+                
+                if (isPlaying) {
+                    togglePlayMode();
+                }
+                
+                setTimeout(() => {
+                    winOverlay.classList.remove('show');
+                }, 3000);
+                
+                debugLog(`Face completed! Total solved: ${solvedPuzzleCount}`);
+            }
+        }
+
+        function startTimer() {
+            stopTimer();
+            secondsElapsed = 0;
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                document.getElementById('timerDisplay').textContent = `${secondsElapsed}s`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function nextUnsolvedFace() {
+            debugLog(`Next called - Solved count: ${solvedPuzzleCount}`);
+            
+            // Stop playing mode if active
+            if (isPlaying) {
+                togglePlayMode();
+            }
+            
+            // Clear any lingering drag state completely
+            dragState.element = null;
+            dragState.index = null;
+            dragState.face = null;
+            
+            // Clear any drag-related classes
+            document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            
+            let foundUnsolved = false;
+            let startFace = currentFaceIndex;
+            let nextFace = (currentFaceIndex + 1) % 6;
+            
+            // Look for an unsolved face
+            for (let i = 0; i < 6; i++) {
+                const puzzle = facePuzzles[nextFace];
+                const isSolved = puzzle.every(c => c.currentCaption === c.correctCaption);
+                
+                if (!isSolved) {
+                    foundUnsolved = true;
+                    currentFaceIndex = nextFace;
+                    break;
+                }
+                nextFace = (nextFace + 1) % 6;
+            }
+            
+            // If all faces are solved or we're back at the start
+            if (!foundUnsolved) {
+                // Check if current face is solved
+                const puzzle = facePuzzles[currentFaceIndex];
+                const currentIsSolved = puzzle.every(c => c.currentCaption === c.correctCaption);
+                
+                if (currentIsSolved) {
+                    // If current is solved, go to face 0 and generate new puzzle
+                    currentFaceIndex = 0;
+                    facePuzzles[currentFaceIndex] = generatePuzzleForFace();
+                    debugLog(`All faces solved - generated new puzzle for face 0`);
+                    
+                    // Re-initialize drag system every 3rd puzzle to prevent accumulation issues
+                    if (solvedPuzzleCount >= 2) {
+                        debugLog(`Re-initializing drag system after ${solvedPuzzleCount} puzzles`);
+                        setTimeout(() => {
+                            setupDragAndDrop();
+                            solvedPuzzleCount = 0; // Reset counter
+                        }, 100);
+                    }
+                }
+            }
+            
+            // Update cube position
+            updateCubePosition();
+            document.getElementById('faceIndicator').textContent = `${faceNames[currentFaceIndex]} Face`;
+            
+            // Reset stats
+            secondsElapsed = 0;
+            swapCount = 0;
+            document.getElementById('timerDisplay').textContent = '0s';
+            
+            // Re-render all faces to ensure clean state
+            renderAllCubeFaces();
+            
+            // Force update drag capabilities
+            setTimeout(() => {
+                updateDragCapabilities();
+            }, 50);
+            
+            updateStats();
+            
+            debugLog(`Moved to face: ${currentFaceIndex}`);
+        }
+
+        function newCube() {
+            if (isPlaying) {
+                togglePlayMode();
+            }
+            
+            // Reset solved counter
+            solvedPuzzleCount = 0;
+            
+            // Clear drag state
+            dragState.element = null;
+            dragState.index = null;
+            dragState.face = null;
+            
+            // Re-initialize drag system
+            setupDragAndDrop();
+            
+            if (recentlyUsedCartoons.length > 18) {
+                recentlyUsedCartoons = recentlyUsedCartoons.slice(-18);
+            }
+            
+            initializeCube();
+            
+            currentFaceIndex = 0;
+            updateCubePosition();
+            document.getElementById('faceIndicator').textContent = `${faceNames[currentFaceIndex]} Face`;
+            
+            secondsElapsed = 0;
+            swapCount = 0;
+            document.getElementById('timerDisplay').textContent = '0s';
+            updateStats();
+            
+            debugLog('New cube created - drag system re-initialized');
+        }
+
+        function solvePuzzle() {
+            const puzzle = facePuzzles[currentFaceIndex];
+            puzzle.forEach(cartoon => {
+                cartoon.currentCaption = cartoon.correctCaption;
+                cartoon.isCorrect = true;
+            });
+            
+            // Update only captions without re-rendering the whole face
+            updateCaptions(currentFaceIndex);
+            
+            if (isPlaying) {
+                updateDragCapabilities();
+            }
+            
+            updateStats();
+            
+            if (isPlaying) {
+                checkWin();
+            }
+        }
+
+        function resetDrag() {
+            // Stop playing if active
+            if (isPlaying) {
+                togglePlayMode();
+            }
+            
+            // Clear drag state
+            dragState.element = null;
+            dragState.index = null;
+            dragState.face = null;
+            
+            // Remove any lingering drag classes
+            document.querySelectorAll('.dragging').forEach(el => {
+                el.classList.remove('dragging');
+            });
+            document.querySelectorAll('.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+            
+            // Reset all puzzle faces - keep same cartoons but reshuffle all captions
+            for (let faceIndex = 0; faceIndex < 6; faceIndex++) {
+                const puzzle = facePuzzles[faceIndex];
+                
+                // Collect all correct captions from this face
+                const correctCaptions = puzzle.map(p => p.correctCaption);
+                
+                // Shuffle them to create a new derangement
+                let shuffledCaptions = [...correctCaptions].sort(() => Math.random() - 0.5);
+                
+                // Ensure no caption starts in the correct position (derangement)
+                let attempts = 0;
+                while (attempts < 50) {
+                    let hasFixedPoint = false;
+                    for (let i = 0; i < puzzle.length; i++) {
+                        if (shuffledCaptions[i] === correctCaptions[i]) {
+                            hasFixedPoint = true;
+                            shuffledCaptions.sort(() => Math.random() - 0.5);
+                            break;
+                        }
+                    }
+                    if (!hasFixedPoint) break;
+                    attempts++;
+                }
+                
+                // Apply the new shuffled captions
+                puzzle.forEach((cartoon, i) => {
+                    cartoon.currentCaption = shuffledCaptions[i];
+                    cartoon.isCorrect = false; // Clear all correct states
+                });
+            }
+            
+            // Reset game statistics
+            secondsElapsed = 0;
+            swapCount = 0;
+            solvedPuzzleCount = 0;
+            document.getElementById('timerDisplay').textContent = '0s';
+            document.getElementById('swapCountDisplay').textContent = '0';
+            
+            // Update only the captions on all faces without re-rendering images
+            for (let i = 0; i < 6; i++) {
+                updateCaptions(i);
+            }
+            
+            // Update stats display
+            updateStats();
+            
+            // Re-initialize the drag system
+            setupDragAndDrop();
+            
+            // Visual feedback - flash green to show reset happened
+            const resetBtn = document.querySelector('.reset-btn');
+            resetBtn.style.background = '#4CAF50';
+            setTimeout(() => {
+                resetBtn.style.background = '#607d8b';
+            }, 300);
+            
+            debugLog('All puzzles reset - captions reshuffled on all faces');
+        }
+
+        function toggleHelp() {
+            const helpOverlay = document.getElementById('helpOverlay');
+            helpOverlay.classList.toggle('show');
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('helpOverlay').classList.contains('show')) {
+                if (e.key === 'Escape') {
+                    toggleHelp();
+                }
+                return;
+            }
+            
+            switch(e.key) {
+                case 'ArrowUp': e.preventDefault(); rotateCube('up'); break;
+                case 'ArrowDown': e.preventDefault(); rotateCube('down'); break;
+                case 'ArrowLeft': e.preventDefault(); rotateCube('left'); break;
+                case 'ArrowRight': e.preventDefault(); rotateCube('right'); break;
+                case 'Enter': e.preventDefault(); togglePlayMode(); break;
+                case 'd':
+                case 'D':
+                    debugMode = !debugMode;
+                    document.getElementById('debugInfo').classList.toggle('show', debugMode);
+                    debugLog(debugMode ? 'Debug mode enabled' : 'Debug mode disabled');
+                    break;
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupDragAndDrop();  // Set up event delegation
+            initializeCube();
+            updateStats();
+            debugLog('Game initialized');
+        });
+    </script>
+</body>
+</html>
