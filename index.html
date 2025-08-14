@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Caption Contest Cube Game</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Arial', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      user-select: none;
+    }
+
+    h1 {
+      color: white;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      font-size: 2.5em;
+    }
+
+    .game-container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .cube-section { display: flex; align-items: center; gap: 30px; }
+
+    .cube-container { perspective: 1200px; width: 770px; height: 770px; position: relative; }
+
+    .cube {
+      width: 100%; height: 100%; position: relative; transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+      transform: translateZ(-385px);
+    }
+
+    .cube-face {
+      position: absolute; width: 770px; height: 770px;
+      border: 3px solid rgba(255, 255, 255, 0.4);
+      background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(245,245,245,0.98) 100%);
+      backface-visibility: visible;
+      border-radius: 15px;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+      padding: 15px;
+    }
+
+    .cube-face.active {
+      box-shadow: 0 0 60px rgba(255, 215, 0, 0.9), 0 0 30px rgba(255, 215, 0, 0.5);
+      border-color: gold; border-width: 4px;
+    }
+
+    .cube-face.front  { transform: rotateY(  0deg) translateZ(385px); }
+    .cube-face.back   { transform: rotateY(180deg) translateZ(385px); }
+    .cube-face.right  { transform: rotateY( 90deg) translateZ(385px); }
+    .cube-face.left   { transform: rotateY(-90deg) translateZ(385px); }
+    .cube-face.top    { transform: rotateX( 90deg) translateZ(385px); }
+    .cube-face.bottom { transform: rotateX(-90deg) translateZ(385px); }
+
+    .face-content {
+      width: 100%; height: 100%;
+      display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .cube-cartoon {
+      border: 2px solid #ddd; border-radius: 8px; overflow: hidden;
+      display: flex; flex-direction: column; background: white; position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .cube-cartoon.correct {
+      border-color: #4CAF50;
+      background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+      box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    }
+
+    .cube-cartoon.drag-over {
+      border-color: #2196F3; transform: scale(1.05);
+      box-shadow: 0 8px 20px rgba(33, 150, 243, 0.4); z-index: 10;
+    }
+
+    .cube-image {
+      flex: 1; background: #f5f5f5; display: flex; align-items: center; justify-content: center;
+      overflow: hidden; position: relative; min-height: 120px; transition: transform 0.3s ease; cursor: pointer;
+    }
+
+    .cube-image:hover {
+      z-index: 100; position: relative; box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+      border-radius: 8px; background: white;
+    }
+
+    .cube-image img { transition: transform 0.3s ease; pointer-events: auto; }
+    .cube-image.panning img { transition: none !important; }
+
+    .cube-image:hover .image-placeholder { transform: scale(1.5); }
+
+    .image-placeholder {
+      padding: 25px 10px; color: #666; text-align: center; font-size: 14px;
+      background: linear-gradient(135deg, #e8e8e8 0%, #f5f5f5 100%);
+      height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;
+      transition: transform 0.3s ease;
+    }
+
+    .contest-number-large {
+      font-size: 48px; font-weight: bold; color: #764ba2;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px;
+    }
+
+    .cube-caption {
+      padding: 8px; font-size: 12px; background: #f8f9fa; min-height: 50px;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      line-height: 1.3; cursor: default; transition: all 0.3s ease; border-top: 1px solid #e0e0e0;
+    }
+
+    .cube-caption.draggable { cursor: grab; }
+    .cube-caption.draggable:hover { background: #e3f2fd; }
+    .cube-caption.dragging { opacity: 0.5; cursor: grabbing; }
+
+    .cube-check {
+      position: absolute; top: 5px; right: 5px; width: 28px; height: 28px;
+      background: #4CAF50; color: white; border-radius: 50%;
+      display: none; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .cube-cartoon.correct .cube-check { display: flex; animation: checkPop 0.3s ease; }
+
+    @keyframes checkPop { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+    .nav-controls { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .nav-btn {
+      width: 40px; height: 40px; background: rgba(255, 255, 255, 0.95);
+      border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 50%;
+      cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+      transition: all 0.3s; box-shadow: 0 3px 10px rgba(0,0,0,0.2); color: #333;
+    }
+    .nav-btn:hover { background: white; transform: scale(1.1); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
+    .nav-row { display: flex; gap: 5px; align-items: center; }
+
+    .game-info-bar {
+      background: rgba(255, 255, 255, 0.95); border-radius: 15px; padding: 15px 30px;
+      display: flex; align-items: center; justify-content: space-between; gap: 30px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1); min-width: 770px;
+    }
+
+    .stats-group { display: flex; gap: 25px; align-items: center; }
+    .stat-item { font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 5px; }
+    .stat-label { color: #666; font-weight: 500; }
+    .stat-value { color: #2196F3; font-size: 18px; }
+
+    .face-indicator {
+      font-size: 18px; font-weight: 700; color: #764ba2; padding: 8px 16px;
+      background: linear-gradient(135deg, rgba(118,75,162,0.1) 0%, rgba(102,126,234,0.1) 100%);
+      border-radius: 20px;
+    }
+
+    .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+    .action-btn {
+      padding: 8px 20px; border: none; border-radius: 20px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .select-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .shuffle-btn { background: #ff9800; color: white; }
+    .new-cube-btn { background: #9c27b0; color: white; }
+    .reset-btn { background: #607d8b; color: white; }
+    .solve-btn { background: #4CAF50; color: white; }
+    .help-btn { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; }
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+    .win-overlay {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+      background: white; padding: 30px 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center; z-index: 1000; transition: transform 0.5s ease;
+    }
+    .win-overlay.show { transform: translate(-50%, -50%) scale(1); }
+    .win-message { font-size: 32px; color: #4CAF50; margin-bottom: 10px; font-weight: 700; }
+    .win-stats { font-size: 18px; color: #666; }
+
+    .mode-badge {
+      position: absolute; top: 10px; left: 10px; background: rgba(255, 255, 255, 0.9);
+      padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: 600; color: #764ba2; display: none;
+    }
+    .cube-face.active .mode-badge { display: block; }
+
+    .contest-number {
+      position: absolute; top: 5px; left: 5px; font-size: 10px; color: #999;
+      background: rgba(255,255,255,0.9); padding: 2px 5px; border-radius: 3px; z-index: 1;
+    }
+
+    .help-overlay {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7);
+      display: none; align-items: center; justify-content: center; z-index: 2000;
+    }
+    .help-overlay.show { display: flex; }
+
+    .help-content {
+      background: white; border-radius: 20px; padding: 30px; max-width: 500px; max-height: 80vh;
+      overflow-y: auto; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .help-content h2 { color: #764ba2; margin-bottom: 20px; font-size: 28px; text-align: center; }
+    .help-section { margin-bottom: 20px; }
+    .help-section h3 { color: #667eea; margin-bottom: 10px; font-size: 18px; }
+    .help-section p, .help-section li { color: #333; line-height: 1.6; font-size: 14px; }
+    .help-section ul { margin-left: 20px; }
+    .help-section li { margin-bottom: 5px; }
+    .close-help {
+      position: absolute; top: 10px; right: 15px; font-size: 30px; background: none; border: none; color: #999;
+      cursor: pointer; transition: color 0.3s;
+    }
+    .close-help:hover { color: #333; }
+
+    /* Preloader */
+    .preloader-overlay{
+      position:fixed; inset:0; background:rgba(0,0,0,.6);
+      display:none; align-items:center; justify-content:center; z-index:3000;
+    }
+    .preloader-overlay.show{ display:flex; }
+    .preloader-box{
+      background:#fff; padding:24px 20px; border-radius:16px; width:320px;
+      box-shadow:0 20px 60px rgba(0,0,0,.35); text-align:center;
+    }
+    .preloader-title{ font-weight:700; margin-bottom:12px; color:#444; }
+    .preloader-bar{ height:10px; background:#eee; border-radius:6px; overflow:hidden; margin:8px 0 6px; }
+    .preloader-bar-fill{ height:100%; width:0%; background:linear-gradient(135deg,#667eea,#764ba2); transition:width .2s ease; }
+    .preloader-count{ font-size:12px; color:#666; }
+  </style>
+</head>
+<body>
+  <h1>The Caption Contest Cube Game</h1>
+
+  <!-- Preloader overlay -->
+  <div class="preloader-overlay" id="preloader">
+    <div class="preloader-box">
+      <div class="preloader-title">Preloading cartoons…</div>
+      <div class="preloader-bar"><div class="preloader-bar-fill" id="preloaderFill"></div></div>
+      <div class="preloader-count"><span id="preloaderCount">0</span> / <span id="preloaderTotal">0</span></div>
+    </div>
+  </div>
+
+  <div class="help-overlay" id="helpOverlay">
+    <div class="help-content">
+      <button class="close-help" onclick="toggleHelp()" aria-label="Close Help">×</button>
+      <h2>How to Play</h2>
+<p><strong>Tip:</strong> The game works best in Chrome or Firefox. Safari users may see minor visual glitches.</p>
+      <div class="help-section">
+        <h3>🎯 Goal</h3>
+        <p>Match each cartoon with its correct caption by swapping them around.</p>
+      </div>
+      <div class="help-section">
+        <h3>🎮 Controls</h3>
+        <ul>
+          <li><strong>Click to Start:</strong> Start solving the current face</li>
+          <li><strong>Drag & Drop:</strong> Swap captions between cartoons</li>
+          <li><strong>Arrow buttons/keys:</strong> Rotate the cube</li>
+          <li><strong>Hover on contest #:</strong> Enlarge for better viewing</li>
+        </ul>
+      </div>
+      <div class="help-section">
+        <h3>✅ Winning</h3>
+        <p>Correct matches turn green with a checkmark. Complete all 9 to win!</p>
+      </div>
+      <div class="help-section">
+        <h3>🔘 Buttons</h3>
+        <ul>
+          <li><strong>Rotate:</strong> Rotate one face to the left</li>
+          <li><strong>New Cube:</strong> Generate fresh puzzles</li>
+          <li><strong>Reset:</strong> Reshuffle all captions on all faces</li>
+          <li><strong>Solve:</strong> Show the solution on the current face</li>
+        </ul>
+      </div>
+      <div class="help-section">
+        <h3>📊 Stats</h3>
+        <ul>
+          <li><strong>Time:</strong> How long you've been solving the face</li>
+          <li><strong>Swaps:</strong> Number of caption swaps made this session</li>
+          <li><strong>Min:</strong> Minimum swaps for the <em>initial deal</em> of this face</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="game-container">
+    <div class="cube-section">
+      <div class="nav-controls">
+        <button class="nav-btn" onclick="rotateCube('up')" aria-label="Rotate Up" title="Rotate Up">▲</button>
+        <div class="nav-row">
+          <button class="nav-btn" onclick="rotateCube('left')" aria-label="Rotate Left" title="Rotate Left">◄</button>
+          <button class="nav-btn" onclick="rotateCube('right')" aria-label="Rotate Right" title="Rotate Right">►</button>
+        </div>
+        <button class="nav-btn" onclick="rotateCube('down')" aria-label="Rotate Down" title="Rotate Down">▼</button>
+      </div>
+
+      <div class="cube-container" id="cubeContainer">
+        <div class="cube" id="cube">
+          <div class="cube-face front" data-face="0">
+            <div class="mode-badge">PLAYING</div>
+            <div class="face-content" data-face-content="0"></div>
+          </div>
+          <div class="cube-face back" data-face="1">
+            <div class="mode-badge">PLAYING</div>
+            <div class="face-content" data-face-content="1"></div>
+          </div>
+          <div class="cube-face right" data-face="2">
+            <div class="mode-badge">PLAYING</div>
+            <div class="face-content" data-face-content="2"></div>
+          </div>
+          <div class="cube-face left" data-face="3">
+            <div class="mode-badge">PLAYING</div>
+            <div class="face-content" data-face-content="3"></div>
+          </div>
+          <div class="cube-face top" data-face="4">
+            <div class="mode-badge">PLAYING</div>
+            <div class="face-content" data-face-content="4"></div>
+          </div>
+          <div class="cube-face bottom" data-face="5">
+            <div class="mode-badge">PLAYING</div>
+            <div class="face-content" data-face-content="5"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-info-bar">
+      <div class="face-indicator" id="faceIndicator">Front Face</div>
+
+      <div class="stats-group">
+        <div class="stat-item">
+          <span class="stat-label">Time:</span>
+          <span class="stat-value" id="timerDisplay">0s</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Swaps:</span>
+          <span class="stat-value" id="swapCountDisplay">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Min:</span>
+          <span class="stat-value" id="minSwapsDisplay">0</span>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="action-btn help-btn" onclick="toggleHelp()">How to Play</button>
+        <button class="action-btn select-btn" onclick="togglePlayMode()">
+          <span id="playButtonText">Click to Start</span>
+        </button>
+        <button class="action-btn shuffle-btn" onclick="rotateCube('left')">Rotate</button>
+        <button class="action-btn new-cube-btn" onclick="newCube()">New Cube</button>
+        <button class="action-btn reset-btn" onclick="resetDrag()">Reset</button>
+        <button class="action-btn solve-btn" onclick="solvePuzzle()">Solve</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="win-overlay" id="winOverlay">
+    <div class="win-message">🎉 Face Complete! 🎉</div>
+    <div class="win-stats" id="winStats"></div>
+  </div>
+
+  <script>
+    // -----------------------------
+    // Utilities
+    // -----------------------------
+    function shuffleInPlace(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // Ensure no item equals its "forbidden" counterpart at same index
+    function derangeFrom(arr, forbiddenAtIndex) {
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] === forbiddenAtIndex[i]) {
+          const j = (i + 1) % arr.length;
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+      return arr;
+    }
+
+    // Duplicate-safe minimum swaps
+    function minimumSwapsFor(puzzle) {
+      if (!puzzle || !puzzle.length) return 0;
+
+      const correctCaptions = puzzle.map(p => p.correctCaption);
+      const currentCaptions = puzzle.map(p => p.currentCaption);
+
+      const buckets = new Map(); // caption -> array of target indices
+      correctCaptions.forEach((cap, idx) => {
+        if (!buckets.has(cap)) buckets.set(cap, []);
+        buckets.get(cap).push(idx);
+      });
+
+      const perm = new Array(puzzle.length);
+      for (let i = 0; i < currentCaptions.length; i++) {
+        const cap = currentCaptions[i];
+        const list = buckets.get(cap);
+        if (!list || list.length === 0) return 0; // inconsistent, but safe
+        perm[i] = list.shift();
+      }
+
+      const visited = new Array(perm.length).fill(false);
+      let cycles = 0;
+      for (let i = 0; i < perm.length; i++) {
+        if (!visited[i]) {
+          cycles++;
+          let j = i;
+          while (!visited[j]) {
+            visited[j] = true;
+            j = perm[j];
+          }
+        }
+      }
+      return perm.length - cycles;
+    }
+
+    // Preloader helpers
+    function showPreloader(total) {
+      const o = document.getElementById('preloader');
+      document.getElementById('preloaderTotal').textContent = String(total);
+      document.getElementById('preloaderCount').textContent = '0';
+      document.getElementById('preloaderFill').style.width = '0%';
+      o.classList.add('show');
+    }
+
+    function updatePreloader(done, total) {
+      document.getElementById('preloaderCount').textContent = String(done);
+      const pct = total ? Math.round((done / total) * 100) : 100;
+      document.getElementById('preloaderFill').style.width = pct + '%';
+    }
+
+    function hidePreloader() {
+      document.getElementById('preloader').classList.remove('show');
+    }
+
+    // Concurrency-limited image preloader
+    function preloadImages(urls, onProgress, concurrency = 6) {
+      let completed = 0;
+      const total = urls.length;
+      return new Promise((resolve) => {
+        if (total === 0) { onProgress?.(0,0); resolve(); return; }
+
+        let inFlight = 0, index = 0;
+
+        const launch = () => {
+          while (inFlight < concurrency && index < total) {
+            const url = urls[index++];
+            inFlight++;
+
+            const img = new Image();
+            const done = () => {
+              completed++; inFlight--;
+              onProgress?.(completed, total);
+              if (completed === total) resolve();
+              else launch();
+            };
+            img.onload = done;
+            img.onerror = done;
+            img.src = url;
+          }
+        };
+
+        launch();
+      });
+    }
+
+    // Collect unique image URLs for the current cube
+    function collectCubeImageUrls() {
+      const set = new Set();
+      for (const face of facePuzzles) {
+        for (const item of face) {
+          set.add(`./${item.imageFile}`);
+        }
+      }
+      return Array.from(set);
+    }
+
+    // -----------------------------
+    // Caption data
+    // -----------------------------
+    const captionData = {
+"1": ["More important, however, is what I learned about myself.", "First you must gain their trust.", "Well, it was just easier than making a thousand tiny lab coats."],
+"2": ["This is my stop. Phil, you'll be CEO til 63rd street.", "Yes, I do miss the corporate jet. I miss the corporate jet very much.", "Frank called to say he'll be late, he's stuck at the office."],
+"3": ["Neither the time nor the place, Doug!", "Would it kill you to use a few of your roaming minutes?", "This better be good. That floor was waxed last night!"],
+"5": ["Tell my 1:30 things got way gnarly…", "Gotta reschedule. Water main break on Seventh!", "Hold my calls, cancel my appointments and find my speedo!"],
+"7": ["Relax, honey—everybody gets buyer's remorse", "You always get like this when there's a full Earth.", "It's just the wind."],
+"12": ["And tomorrow, I'll teach you how to build a nest.", "Can I have your apartment?", "There's a message on my leg from Karl Rove."],
+"14": ["Oh, sure, they find one secretary in a pool of her own blood and everybody wants to blame the werewolf.", "400 grand in damages? It was made out of straw, fer chrissake!", "Yes, of course I've tried waxing."],
+"15": ["Well, it's a lovely gesture, but I still think we should start seeing other people.", "Don't move. I think I have something in my teeth.", "It might look like the Virgin Mary but I don't see how you can sell it on eBay."],
+"16": ["O.K., they're yours, but I still don't know where you got that fourth ace.", "Keep your eye out for a blond kid with a laser pointer.", "I think it's important for them to hear both sides of the debate."],
+"17": ["Yes, I tried tapping on the glass.", "Well, the good news is the giant worms are gone.", "Maybe you'll believe me once I've been regurgitated."],
+"18": ["FEMA here. No, we haven't had any substantiated reports of earthquakes.", "Let me call you back...I left God holding on the other line.", "Miss Jones, send in the extra paperweights."],
+"19": ["See Spot run. See Spot run. Who wrote this crap?", "You won't believe this, but I just remembered where I buried the remote.", "Oh, did I mention that Timmy fell down the well?"],
+"20": ["We met at the mini bar.", "Larry can't tell you about his current project—it's top secret.", "Whatever you do, don't agree to play hide-and-seek with him."],
+"21": ["This is why I always dress in bright colors.", "It's our new interactive TV. When he's done, I'm having an appendectomy on 'General Hospital.'", "We've got a thirty-six-inch plasma mounted in the den."],
+"22": ["Well, then, it's unanimous.", "Who else found Gary's report a little too angry, white, and male.", "So that settles it. This year, instead of cooking the books, we'll bake them in a light, flaky pastry."],
+"23": ["But how will we raise the kids?", "You think this is weird? My sister looks like a soup can.", "It's not traditional, but I find it attracts a more mature type of female."],
+"24": ["Hold my hand and we can use the car-pool lane.", "I had another one of those walking dreams last night.", "Can you believe the fairy-dust prices these days?"],
+"26": ["That concludes tonight's performance of 'Pimp My Ride of the Valkyries.'", "This season, we welcome a new corporate sponsor.", "Sorry I'm late."],
+"27": ["Shut up, Bob, everyone knows your parrot's a clip-on.", "We have to find a better way to record our meetings.", "Well, it's not my fault booty revenues are down this quarter."],
+"28": ["Dibs on the briefcase.", "Uh-oh. That last village must have been incorporated.", "There goes the neighborhood."],
+"30": ["Instead of an expensive, invasive procedure, we've decided to beat it out of you.", "Good news! We have a solid lead on who stole your liver.", "That rash will need constant monitoring."],
+"31": ["If I'm not back at the maze by eight, my wife reels in the damn string.", "If they ask for Ted's Stud Service, I'll take it.", "Don't tell me it's halftime already."],
+"32": ["It's not just Henderson. Corporate laid off the entire bunny division.", "Well, there he goes—the first casualty of the War on Easter.", "Well, at least somebody remembered about casual Good Friday."],
+"34": ["I bet the bride of Frankenstein gets to cuddle.", "And where do you think you're going with those curtains?", "I guess this rules out a church wedding."],
+"37": ["Are you now, or have you ever been?", "The committee will ask you one final time: do you come in a 42?", "He won't get far."],
+"38": ["That's the last time we brag about our kids.", "At the end of the day, I guess I'm just really more of a cat person.", "Sure, she's cute, but she'll never have a dancer's body."],
+"40": ["Well, that was abominable.", "I just wish we could talk about something other than global warming.", "I think the Manhattan skyline is getting suspicious."],
+"41": ["Finally—a faith-based initiative I can embrace.", "Just don't order a Bloody Mary.", "Hey! Who ya gotta pray to to get a drink around here?"],
+"43": ["How many surprise witnesses do you have in that little car?", "Ooh... I'm going to allow this!", "I don't know about you, counsellor, but I kind of wish there were more murders at the circus."],
+"44": ["It's not good—looks like they've got a full interpretive-dance troupe.", "O.K., send him in. But this goes against the Geneva conventions.", "Not a good day for a street fair."],
+"46": ["First, I'd like to thank the podium.", "Do I hear a motion for less disclosure?", "If all goes well, we'll get them back after the audit."],
+"47": ["How soon can you start?", "Our conflict-resolution seminar ended a bit early today.", "Just remember to keep away from Fletcher's wife, and Davidson's daughter, and Harris's iPod."],
+"48": ["O.K., this time with a little less feeling.", "Gosh, Wendy, that was more like 'The Flight of the Whole Hive.'", "Yes, dear, I'm sure your grandmother can hear you in Heaven."],
+"49": ["Stop me if you've heard this one.", "I thought I told you to stop sending me jokes at work.", "It's gonna be one of those long nights of playing devil's advocate."],
+"51": ["Can you please identify which hand was mistakenly amputated?", "When did you first encounter my client's balloon?", "Your Honor, may I have permission not to approach the witness?"],
+"53": ["Two thousand eyes, but it still takes you all day to read the morning paper.", "Would your mother find chilled larvae in a light honey glaze too waspy?", "Well, it's another thrilling night at the Samsas'."],
+"54": ["And, best of all, it's completely waterproof!", "Maybe this thing isn't a compass.", "Thank God for TiVo."],
+"55": ["Wait. Would we still be doing this if the sky weren't falling?", "Quack means quack!", "So this is why you crossed the road."],
+"56": ["Damn it, I'm a brain surgeon, not a rocket scientist!", "It's the worst case of projectile dysfunction I've ever seen.", "We thought it would look better with big breasts."],
+"57": ["There may be some lingering resentment.", "It's painful, but I couldn't stand another chorus of 'Take Me to the River.'", "Watch out for the moose head in the parlor."],
+"58": ["Sooner or later, you're going to have to learn your way to the bathroom yourself.", "We never get out anymore.", "Try counting rats."],
+"60": ["I'd mutiny, but I'm having such a nice day.", "Aye, and he replaced walking the plank with time out.", "No, we don't get much booty, but we meet a lot of nice people."],
+"62": ["O.K., let's wrap up and call it a day. I feel like we're losing our focus.", "This new M.B.A. crop is so hard to break.", "Just five more seconds and you'll break the record set by Tex and Dolly Rosenberg in Accounting."],
+"63": ["We have company, Henry. Use the good china.", "He has his life, and I have mine.", "Can you tell it's a knockoff?"],
+"65": ["Jenkins, if I want another yes-man I'll build one.", "They're programmed to be idiots, Higgins. What's your excuse?", "You're voting with your pacemaker again, Hargrove!"],
+"66": ["Wait, this is yesterday's.", "There's something about holding a rock in your hands that newspapers can't replace.", "Same old, same old."],
+"67": ["Don't laugh. He's made partner.", "There's no good way to tell you this, Carson—your job has been dogsourced.", "He's a stray, but I'm thinking of keeping him."],
+"68": ["It was a big seller until we had to recall the cherries.", "By golly, Detroit is back!", "Would you believe a kid came up with this?"],
+"69": ["It's not just that he walks upright and uses complex tools. He also makes me laugh.", "The fire went out.", "I want to meet different kinds of Man."],
+"72": ["And make mine a decaf.", "The board just voted to remove the net.", "I'll take a cab."],
+"73": ["Carol, let's go ahead and keep the job posted for a little while longer.", "No, it's more of a gnawing ...", "Mom, tell Kevin to quit biting."],
+"76": ["It better work—they sold it to us.", "If this doesn't work, push that boulder and run like hell.", "Our medicine man went to M.I.T."],
+"79": ["The elevator takes some getting used to.", "Looks like another side-rise is springing up.", "I think I liked them the other way."],
+"80": ["It looks like someone's going to have the complete set!", "Look, honey, it's the new Tickle Me Maniac.", "I thought Grampy Willis would enjoy being exhumed for the holidays."],
+"81": ["Actually, it was more of a lateral move than a promotion.", "O.K., I've backed everything up. Now what?", "Two for the price of one? Yes, I may very well be interested."],
+"82": ["Listen, Satan, can I call you back?", "I gotta go. 'Mr. Wonderful' is having one of his episodes.", "It's like paradise for the first few days. But you wouldn't want to live here."],
+"83": ["You know how it is—first you buy the giant-screen television, then nothing else seems to match.", "It's down the hall, but don't fall in.", "Would anyone like 1/68th of a piece of toast?"],
+"85": ["Oh, no! My best friend and my best friend's wife!", "Interested in a threesome? I'll just sit on the floor and sort tax receipts.", "How long has this been going on?"],
+"86": ["I support our troops as much as the next guy, but do we have to let them play through?", "If we truly believe in golf, I don't think we have much of a choice.", "Tom, I think you should stop shouting 'Bombs away!' every time you drive the ball."],
+"87": ["Next time, just knock.", "Good morning, sir, do you have time to answer just a few short questions for our survey?", "O.K., now it's your turn to hide."],
+"88": ["You don't scare me. I come from a long line of salesmen.", "I'd like to talk to you about a unique opportunity.", "Are you sure Mr. Coyote left no forwarding address? This is going to be quite a blow to our sales team."],
+"90": ["Remember back when the worst thing you could catch around here was athlete's foot?", "Don't ask me. I don't know what to do.", "Oh, the rhymes I could tell you."],
+"91": ["Yeah, yeah—and I invented the ticket.", "I'm going to let you off with a warning, since you have no prior history.", "Mind if I look in the hole?"],
+"92": ["If he's so damn intelligent, let him get a job.", "Come on, George. You know he's only going to spend it on more oxygen.", "Give him money, and you feed him today; teach him how to earn money by somersaulting on cue, and you feed him for life."],
+"95": ["You know, I'm gonna miss this when we go paperless.", "Auditing Siegfried and Roy has not been easy.", "Remember, Paul, when we were interns?"],
+"97": ["Go fetch your mallet, Wilkins—we'll play doubles.", "I'm having my tech guys set them to music.", "The negotiator for their union was very timid."],
+"98": ["When you're finished here, Spencer, we'll need you on the bridge-to-nowhere project.", "Let me know when the paint is dry.", "Comrade Zinkov, I would prefer that you spy looking through windows and listening through walls."],
+"99": ["I'd like to get your arrow count down.", "Have you tried sleeping on your side?", "On the plus side, it's a terrific example of Native American craftsmanship."],
+"100": ["Don't tell Noah about the vasectomy.", "I told you it was a couples cruise.", "I think we should see other people."],
+"102": ["He's his own best friend.", "In order to truly master the art of fetch, you must understand every element of the process.", "He identifies with the oppressor."],
+"103": ["It's a thongbird.", "The Speedo would suggest that he's not native to Vermont.", "Honey, do you have any dollar bills?"],
+"104": ["Except here it's always good cop, good cop.", "I don't mind cops, but you'd think God would have let in at least one exhaust specialist.", "They have a really hard time meeting their quota."],
+"105": ["I told you this house was too close to the moon.", "It's time that child went on a diet.", "Cowabunga, dear."],
+"106": ["Have you considered writing this story in the third monkey rather than the first monkey?", "We'll have to run it by our infinite number of editors.", "Sorry, guys. It's another rejection letter."],
+"107": ["You want to impress me? Drive to the store and get me more beer.", "Don't worry—they'll never actually build it.", "Trust me, my lessons have way more real-world applications."],
+"108": ["He's always thinking outside the rock.", "He needed a place to park his wheel.", "Yeah, but the weirdest thing was, once he built it, I suddenly felt compelled to give him a list of things to do around it."],
+"112": ["We're gonna need a bigger spear.", "So this is what killed the dinosaurs.", "What did you say happened to the last tenant?"],
+"114": ["He's the lifeguard during high tide.", "The regular lifeguard isn't seeing anybody today.", "God needed a part time job..."],
+"115": ["Ever have the feeling you forgot to turn something off?", "Trust me, background radiation—it's the new secondhand smoke.", "The way I see it, I'm the miner, and you're the canary."],
+"117": ["My wife will be here any moment. She's loading herself into the cannon as we speak.", "Welcome to the greatest living room on Earth!", "The people who lived here before had lions."],
+"118": ["I always figured hell would be less ironic.", "Why did you think angels had wings?", "It's not the tedium. It's the uncertainty."],
+"119": ["If he wakes up, you can give him a Martini.", "Make sure you burp him after his 11a.m. conference call.", "He sleeps through the night as long as the market's stable."],
+"120": ["If I start to drink too much, just pull off my lips.", "My wife left me for Mr. Peanut.", "I should have stopped after the Botox."],
+"121": ["Yeah, that one's funny, too. Next.", "I'm just glad we don't make lingerie.", "This part of the job is easy—it's the whoopee-cushion testing that annoys me."],
+"122": ["If the jury needs another day, they're using paper plates tomorrow.", "Yeah, well, it got me through college and law school, and it'll get me through here, too.", "I wish they'd let us wear short-sleeved robes."],
+"124": ["I don't know about you, but I'd be willing to pitch in for a new contact lens.", "If we had just started wandering fifteen minutes earlier, we would have missed most of this traffic.", "What disease are you crawling for?"],
+"125": ["I liked it better when we just had your people call my people.", "Next week I pick the fantasy.", "So this is what it's like to be a Nielsen family."],
+"131": ["And tomorrow there's a twenty-per-cent chance of anvils.", "Every time I wash the car.", "Great. Safes everywhere, and I'm on probation."],
+"132": ["We're all out of the blood of your enemies. You'll have to settle for marmalade.", "If you didn't want crusts, you should have said so.", "How many cubicles will you conquer today, hon?"],
+"133": ["So you're the guy who discovered friendly fire.", "So how much of the story is autobiographical?", "I almost wore the same spear."],
+"134": ["Next time can we just get flu shots like everyone else?", "Don't sexual fantasies usually involve sex at some point?", "Not tonight, dear. I have acute radiation poisoning."],
+"137": ["And when did you first come to believe that your conversations were being recorded?", "Yes, I understand. Many of my patients have difficulty talking about sex.", "Great! Next week we'll work on your fear of Morse code."],
+"138": ["Get naked, jump in, and make this marriage work!", "And if you'll agree to drop the divorce proceedings and reconcile I'll throw in a pair of lobsters.", "We call it Shark Tank Therapy."],
+"139": ["I still have room for a second opinion.", "If he wasn't an internist he is now.", "Tasted kind of mediciney."],
+"140": ["Indian casino. I'd say Comanche.", "Forget Oregon. I'm going to Vegas.", "There's red carpets in them thar hills!"],
+"157": ["Five hundred billion galaxies and nothing's on.", "See? Foreclosure's not all bad.", "Can I offer anyone a little more oxygen?"],
+"164": ["Come sweater season, you'll be back!", "Could you bring me back a goat?", "You're the one who left your fertility drugs on the counter!"],
+"171": ["I'd suggest you keep them away from the gingerbread men.", "It's not disturbing until someone wants to buy them by the ounce.", "I did the choreography myself."],
+"199": ["Go ahead, waterboard me.", "Well, the menu did say 'Chose your own lobster.'", "You think Alcatraz can hold me?"],
+"200": ["Sir, the competition is here to discuss the merger.", "Oh, yeah, we go way back.", "He says he is known by many names."],
+"229": ["O.K., counsellor, we heard your argument. Now tell us a story.", "Five to four of us would like you to get the lights on your way out.", "How long have you been standing there?"],
+"252": ["Quick, give them a casino.", "Call security and tell them to circle the wagons!", "Looks like I'm going to have to cancel my High Noon."],
+"254": ["Yes, I'm alone.", "I'm on a satellite phone—how's the reception?", "Never thought I'd say this, but I wish I'd played more Whac-A-Mole as a kid."],
+"255": ["I gather you both feel you're being manipulated.", "You need an agent, not a counsellor.", "O.K., now do a tragedy."],
+"256": ["Sorry I'm late. I had to give the boss a ride home.", "It's raining cat-dogs out there.", "Horsey, I'm home."],
+"257": ["Hey, at least it swims like a duck.", "We knew that using the sperm bank might be a gamble.", "Just wait until you see his wingtips."],
+"259": ["Try honking again.", "This is our worst carjacking ever.", "A lot of pizzas are going to be free today."],
+"260": ["Can I interest you in opening an offshore account?", "It's in keeping with our new transparency policy.", "Have you considered burying your treasure?"],
+"261": ["Psst. You want to buy an alligator?", "Hey, move, you're blocking out the sun.", "Get a big stick with a giant wad of gum and get me out of here."],
+"263": ["You're such a light sleeper.", "Now don't you wish you hadn't done so many helium shots?", "You need to cut your toenails."],
+"264": ["I think we've been downsized.", "Corporate is working on a key.", "The boss is a security nut."],
+"265": ["They only want the starter.", "The specials are coming out a little greasy.", "I have a request to see how the sausage is made."],
+"266": ["Careful, the water's hard today.", "There's a warm front coming through this afternoon.", "I started last summer when this was a pool."],
+"267": ["And some fresh flowers for the table.", "Separate checks, please.", "You'll have to speak up."],
+"268": ["My wife just calls me on my cell phone.", "I won't have what he's having.", "That's one heck of a wet willy."],
+"269": ["I didn't get where I am by trying to please.", "Let's keep this brief. I've got to get back to staring out the window.", "This department has become loyal to a fault."],
+"270": ["I have to say, I'm not a big fan of cloud computing.", "I guess you could call me an adventure capitalist.", "I'll be there in ten thousand feet."],
+"271": ["Stop me if you've heard these before.", "Remember, it's all in the timing.", "Watch out for banana peels on the way down."],
+"273": ["I don't mean to be alarmist, but these things usually travel in groups.", "It's probably about time to take down the holiday decorations, honey.", "Wanna build a snow tyrannosaurus?"],
+"274": ["The guy you're looking for waltzed out of here an hour ago.", "Honest to God, Joe, she's the best bouncer I've ever hired.", "How is she on the pole?"],
+"276": ["I don't want you to be the one that got away.", "Relax. The DVR is set. You can catch the game tomorrow.", "I don't want to creep you out or anything, but I'm your biggest fan."],
+"277": ["It would be so easy to flip this house.", "It's available. The other buyers dropped off.", "The owners are willing to throw in shock absorbers."],
+"278": ["Where were you when I drove my car into the lake?", "How 'bout I give you two of these salmon, you walk away, and no one's the wiser?", "I ran out of water, officer."],
+"279": ["Is that your foot?", "Should I call and downsize our pizza order?", "They're outside protesting, sir."],
+"280": ["The governor would like your help with the budget.", "After they're shredded, I want them burned at the stake.", "They're saying the book is dead. I'd like to be sure."],
+"281": ["I'm not going to say the word I'm thinking of.", "Why don't you just admit it—this is the wrong desert.", "Let me know if you spot a divorce lawyer."],
+"282": ["Well, you're the one who insisted on the smoking section.", "Why do we always have to be the first ones off the plane?", "O.K., from now on, just one Ambien each."],
+"283": ["It's time I told you—you were adapted.", "O.K., where did you hide the remote?", "Your services are no longer required."],
+"284": ["Give me a second—I know this one.", "I'll have the chicken.", "When they all walked in that day, I thought something seemed funny."],
+"285": ["I came, I sawed, I conquered.", "I must find the tree that killed my father.", "That one was asking for it."],
+"286": ["It's a working vacation.", "You'll find we do things a little differently here in accounts swimmable.", "Can you please fold it into a little boat?"],
+"287": ["It's for you.", "Don't just stand there, Agnes—get the pliers.", "Hello, I'm calling to report a giant hand in my house."],
+"288": ["Would you call the office and ask them to open my window?", "Hey, kids—you'll need to move over. Mr. Miller's car won't start.", "It's a loaner."],
+"289": ["Part of me thinks you should be seeing a veterinarian.", "So you say you're only half the man you used to be?", "Frankly, your life sounds quite wonderful."],
+"290": ["Let's stay positive. Who would like to start with what went right?", "First off, I'd like to apologize for the change in venue.", "Miriam, I pulled a lot of strings to get you in this meeting."],
+"291": ["Let's walk him and pitch to the bishop.", "Didn't you retire ages ago?", "Surely you joust."],
+"292": ["Looks like they're ready to be flipped, Bob", "Oh, look. The Nelsons have their own gravity now.", "We never should have sold those air rights, Ed."],
+"293": ["Performance art eludes me.", "I've changed my mind, Frank. The pool should be over there.", "One more, and we are officially lunatics."],
+"294": ["Maybe you can talk him down.", "Can I get you a cup of coffee and a pair of stilts?", "He's at the top now, but he still likes to claw his way there every morning."],
+"295": ["It put up quite a fight, but then it ran out of gas.", "I finally bagged this monster after three days of bidding on eBay.", "I only use this room when I'm sentimental for obliteration."],
+"296": ["You know I'll just go straight to your hips.", "You're gonna be huge in this town.", "We're sorry about your cat, but he was eating the slower children."],
+"297": ["Is it so important that it be a rescue ship?", "Want to play the license-plate game again?", "So I see you went with the grass interior."],
+"298": ["I trust you know what to do when you get to the plate.", "O.K., we learned a lot this game, including you can't rush a soufflé.", "First base wants to know if you have anything gluten-free."],
+"299": ["You knew I was a columnist when you married me.", "This game looked a lot easier in the store.", "Maybe this explains why we never had children."],
+"300": ["There is one more thing we could try.", "The procedure is completely reversible.", "Keep it up."],
+"301": ["Looks like they're making cuts at the top.", "I dare anyone to say we missed a spot.", "It seems a bit extreme, but it does keep the zombies away."],
+"302": ["The acoustics were better in the old boardroom.", "I'll be rapping my presentation.", "Prison made him reassess his priorities."],
+"303": ["Who has the time anymore? Now it just sits there, gathering dust.", "It's been in the family since 1789.", "When we drink wines from Spain, we replace it with the rack."],
+"304": ["It's just crabgrass, dear.", "I'm gonna go ahead and reheat last night's casserole.", "Let me know if the massacre is running late."],
+"305": ["Head for the maze!", "O.K., who moved his cheese?", "Quickly—now release the giant cat!"],
+"306": ["If I'm not back at the maze by eight, my wife reels in the damn string.", "Well, you were right, dear. It does hide that stain in the carpet.", "Honey, there's a sale on scarecrows."],
+"307": ["That lady's shoes kind of remind me of Joey.", "I still say the sewers are quicker.", "Anyone care to join us for lunch?"],
+"308": ["You're gonna have to roll me outta here.", "I think you just ate the spare.", "I'd kill for some cream cheese."],
+"310": ["Regime change is never easy, dear.", "It says here, 'Assume the prone position and return enemy fire until such time as reinforcements arrive.'", "So much for starting over in a new city."],
+"312": ["If you can't eat 'em, join 'em.", "I wish I could help you, but I'm a real-estate lawyer.", "I know this seems weird, but even as a cub I could feel the rush of Wall Street racing through my veins."],
+"313": ["Be careful about Ctrl-M.", "I was just made pardner.", "Actually, it came with the glasses."],
+"316": ["I was hoping for eternal rest.", "I'm doing O.K., but I do miss my Lycra bike shorts. And Mildred, of course.", "A clear day? I hadn't thought of that."],
+"319": ["I don't like the way Adam looks at you.", "Please stop asking, honey. If anything, you look too thin.", "Now you'll probably want a chair."],
+"336": ["As an icebreaker, let's all share one interesting thing about ourselves. I'll start.", "To illustrate how couples come to look alike, this is my wife.", "Please hold your applause—there are eighteen more minutes of this."],
+"340": ["Could you go back to the front desk? The receptionist has some forms for you to fill out.", "You're in luck! My 3:00 seems to have fallen off the face of the earth.", "This week we'll delve a little deeper than 'Because it's there,' Mr. Mallory."],
+"364": ["You're cut out for this job.", "Stop me if you've heard this one.", "You don't say!"],
+"367": ["He had great health insurance.", "He never could commit.", "We'll eventually miss him."],
+"371": ["Six rounds. Nine lives. You do the math.", "Calm down, I just came to get my things.", "Consider the effect of recoil."],
+"372": ["Backstabbing was already prevalent--we just added a twist.", "Be careful not to overwind - it can cost us overtime.", "And Bob here came to us from a jewelry box."],
+"375": ["Easy for you to say, you're cured!", "I always wake up dreading the morning.", "I'm always done in three minutes."],
+"376": ["You were filibustering in your sleep again.", "Majority whip tonight?", "Treat me like the White House."],
+"378": ["Aye, they'll be baskets of treasure for us upon Easter island.", "I'm rebranding.", "He's a temp."],
+"379": ["It's only fair. He has a man cave.", "I come here to brood.", "After the kids moved out, the treehouse was just too big."],
+"382": ["It's quite common, Senator. Most politicians are filled with hot air.", "Is the funny voice really worth all this trouble?", "Please, Mr. Blaine. I do have other patients to attend to."],
+"388": ["How's my wife doing?", "Sorry, but I have to play it where it lies.", "Mind if I cut through?"],
+"394": ["I see you are unfamiliar with French Mythology.", "Big deal, you can run but you can't hide!", "Yeah, but this race is up the side of a window."],
+"396": ["Yes he's still out there...and he looks serious.", "I hope that it's chocolate.", "Incredible! We still get Saturday deliveries."],
+"401": ["This is why I didn't want a Monday night appointment!", "I don't need therapy, I just need the remote!", "I'd like to try group therapy with a different group."],
+"404": ["On second thought let's skip the play.", "Omigod, it's finally happened. I've turned into my forefather.", "I look like five bucks."],
+"405": ["The gravy boat is docked at the wharf.", "It's a turduckant....a turkey stuffed with a duck, stuffed with a young, tender elephant.", "Don't worry. It'll plump up as you cook it."],
+"409": ["I told you to let me break his arms!", "Oh my gosh--he IS a canary!", "Luca Brasi flies with the seagulls!"],
+"414": ["No, I'm sorry. You'll need a separate remote for your DVD.", "It comes with its own remote.", "There's actually a guy in here who will change the channels for you."],
+"419": ["You will feel a thing.", "Yeah, but the lollipop is amazing.", "Which arm do you want to keep?"],
+"429": ["He only plays when I'm on hold.", "The good news is we got the piano through the doorway.", "He says he won't go back in the original packaging."],
+"431": ["Say something viral.", "My eyes are down here.", "I'll see you later."],
+"432": ["Last time I'll book a discount vasectomy, for sure."],
+"437": ["Move the car.", "I miss the little birds, and some of the little children.", "They're for our senior citizen birdwatchers."],
+"442": ["Didn't you see the light?", "Let's not tell Dad.", "You're supposed to be on the other shoulder."],
+"444": ["Nice catch, son, now close the deal.", "Hurry. These are billable hours.", "Don't retain it."],
+"445": ["Relax! It just smells the other car on you.", "What's it going to take to get you in this car today?", "She runs like a dream I once had."],
+"446": ["The sign said home style cooking.", "It says here that service is not included.", "It's not a menu. It's a first aid guide for burns."],
+"451": ["Get a hammer.", "His surgery paid for itself.", "This little piggy owns the market."],
+"458": ["So, where do you see yourself in 5,000 years?", "How long have you been in your current position?", "I may have something for you in Vegas."],
+"463": ["This town ain't big enough for anyone.", "This looks like a good place to set up camp.", "Are you sure he said high tide?"],
+"464": ["My bedroom? That's where the sleep happens."],
+"465": ["Be careful, the bald spot is slippery.", "Act of God. We're not liable.", "We should buy a rug."],
+"466": ["Welcome to Mechanics Anonymous.", "Tell them that the jury is still out.", "Alright, folks, it's crunch time."],
+"467": ["He was deemed a flight risk.", "Never ever put me in assisted living.", "Is it weird that we have a pet?"],
+"468": ["This way we avoid the turnpike.", "Would you mind turning on the air, please?", "Yeah, I used to be a heart surgeon on my planet."],
+"469": ["I've gone hayless.", "It's the new Mustang.", "Nothin' like the smell of a new horse."],
+"470": ["Miley's here.", "Why, yes, I am interested in home owner's insurance.", "Hold on, I heard a knock."],
+"471": ["I feel like I'm still at the office.", "I have a theory on why we keep losing our bait.", "Watch out for one with a saw."],
+"472": ["Wave to him.", "He'll never survive the primaries.", "Show them how you make the middle class disappear."],
+"473": ["They can't be that advanced—there's no bagel setting.", "Stay back! They may have gluten!", "They seem too skinny for carb based life forms."],
+"474": ["Legally, we're a farm.", "Let's see how sustainable his job is.", "The third quarter is going to be delicious."],
+"475": ["Invent a job!", "I have a plan to monetize your diet.", "Any new cave paintings?"],
+"476": ["You've achieved closure.", "Any final thoughts?", "Perhaps we should reduce the dosage."],
+"477": ["That explains the signature on the floorboard.", "More hair please.", "My life's a joke."],
+"478": ["It was a partially dark and stormy night.", "An optimist would see the room as half dry.", "Not everything is about you."],
+"479": ["Are you better off now than you were four innings ago?", "My position on the pitch is still evolving.", "I'll always consider this home."],
+"480": ["That's why they call him The Kid.", "He's never seen a duel before, only heard one.", "It's so sad it's his birthday."],
+"481": ["Your profile said you liked surprises.", "Your card's been declined.", "This would be so romantic if this were the right table."],
+"482": ["I live about 3 seconds from here.", "I never know what to wear to these things.", "Want to go upstairs?"],
+"483": ["When did you first realize you were really a woman?", "I recommend a day of rest.", "You know, you have the power to change how you feel."],
+"484": ["You don't need English on every shot.", "I've never been snookered so properly before.", "Solids or pinstripes?"],
+"485": ["I didn't mean your day wasn't hard, too.", "That's funny, I don't feel like the winner.", "I just do it for the healthcare."],
+"486": ["I don't mind but Harald's allergic.", "Wait for my command and then, release the hound.", "Will he bite?"],
+"487": ["Tap is fine.", "I'm on a bar crawl.", "i just need one of those little umbrellas."],
+"488": ["They did say ocean views.", "Let's give them another half hour.", "This is pre-war, you said?"],
+"489": ["I think we're starting to move, everyone.", "Well, it's lonely.", "I hope this guy Knievel knows what he's doing."],
+"490": ["Your sins are forgiven, but not your co-pay.", "We tend to pick up quite a few converts in here.", "You're covered under His plan."],
+"491": ["Does he know why we invited him to the barbecue?", "You're were right, I guess it is a water buffalo.", "Ugh. New Money."],
+"492": ["I can't believe you used that line to get me in here.", "You really would rather be fishing.", "I'm faking it."],
+"493": ["Matisse now; Pollock later.", "I prefer his later jumps.", "Derivative."],
+"494": ["No, just hear him out. Maybe we are being too defensive.", "Lewis, stay stuck in denial. Miller, keep projecting. Everyone else block.", "He thinks you push people away."],
+"495": ["I move for less transparency.", "Look busy.", "Due to financial difficulties, several board members have taken on additional duties."],
+"496": ["It's unplugged. I'm not an idiot.", "It's a classic 1980 Sunbeam.", "I should have chosen door number 2."],
+"497": ["She left me for an engine that could.", "We uncoupled.", "I just feel like there's no light at the end of the tunnel."],
+"498": ["Quick! Your Pen!", "We've been hacked!", "Put him through."],
+"499": ["Your boss just called. He is sending something to you from The Cloud.", "One drop of rain won't kill you.", "They said the showers would be isolated."],
+"500": ["Looks like you boys could use some water.", "It's big and blue. You can't miss it.", "Your first rodeo?"],
+"501": ["I just think it sends the wrong message.", "We've been struggling to enlist millenials.", "This is step one. Next we slip in some ads."],
+"502": ["I can tell you exactly what he was compensating for.", "If I knew Larry, its hollow inside.", "Costco."],
+"503": ["Now who's laughing all the way.", "Our contract has a subordinate Claus.", "This will go down in history."],
+"504": ["I don't normally pick up guys like this.", "I've found another man.", "Taxidermy saved our marriage."],
+"505": ["Marge, I think you ordered from the wrong Amazon!", "Yes, they're new shoes, but it's no one you know.", "Don't give me that endangered species look"],
+"506": ["I'm just the anesthesiologist.", "We're now emphasizing less cruel and more unusual.", "Stop saying, 'KAPOW!' every time."],
+"507": ["My other two wishes were ironically misinterpreted, too.", "You want to sell mustard? Here's how you sell mustard!", "Your cheeseburger is on the loading dock."],
+"508": ["Do YOU remember what you had for lunch last Thursday?", "It was in international waters.", "Can we make this quick? I gotta keep moving."],
+"509": ["I recommend the trout.", "Please! I have a wife and two thousand kids!", "All that work to die a virgin."],
+"510": ["I should have jumped from a higher floor.", "I'm a congressman—obstruction is my job.", "Does this suit make me look flat?"],
+"511": ["Do you see how I'm lifting with my legs?", "I'm hourly.", "It's time you learned about managing people's expectations."],
+"512": ["We get it. You're straight.", "Unfortunately, we are not flexible on mats.", "Everyone is equally welcome here. But you need to leave."],
+"513": ["Not now—I'm in the middle of a big case.", "I'll debrief you two later.", "They only allow one carry-on."],
+"514": ["Head for the carousel! It's our only chance!", "I ain't going back to timeout!", "No, you grow up."],
+"515": ["One more after this and we'll be able to meet our deductible.", "I see our time is almost up.", "Tell me about your childhood very quickly."],
+"516": ["I told my ex I'll take her back if she drops some weight.", "Duck? No, I ordered roast beef.", "Could you explain the 'act of God' clause again?"],
+"517": ["I'm afraid they'll give you life.", "Your priors are going to be a problem.", "Who'd have thought they'd get you for tax evasion."],
+"518": ["His parents never picked him up.", "Isn't this the same guy who got shipwrecked in our wading pool?", "Should we tell him we found his car keys 2 hours ago?"],
+"519": ["He's pro-gun, but I like his stance on migration.", "It must be great to be endangered.", "It took us years to get somebody in the inside."],
+"520": ["It's normal to feel empty after a split.", "Would you feel more comfortable on the floor?", "I am required to report those bruises."],
+"521": ["I doubled my contribution to PBS.", "You should have seen the drink it came in.", "Check to see if it's still raining."],
+"522": ["Will the gentleman be alive for dinner, sir?", "Have you tried turning it off and back on again?", "Will you be needing any more of me, sir?"],
+"523": ["Then maybe you should just tell me what you want for your birthday instead of saying you don't care.", "Can we have one argument without you bringing up the monkeys?", "Should I have gotten a half-barrel?"],
+"524": ["Take the picture, dammit, take the picture!", "I'm sorry I said you had small hands.", "See, right there! You did it again! You're bending your elbow."],
+"525": ["You're in his blind spot.", "He's over tired.", "The rear-facing camera let's him know I'm here."],
+"526": ["Ironically, it's for being so humble.", "Good Samaritan? I was a GREAT Samaritan.", "I let my mother-in-law move in with us."],
+"527": ["You voted Leave, didn't you?", "We said we would return when Cleveland won a championship.", "What happens on Vega stays on Vega."],
+"528": ["Welcome to orientation.", "Excellent slide show.", "First, welcome to Pisa."],
+"529": ["Because it's not there.", "If you see the cartoonist have him drop me a line.", "There's really nothing to it."],
+"530": ["Your overhead is going to kill you.", "The queen has agreed to split everything fifty-fifty.", "We could also go with a chandelier."],
+"531": ["Sorry I'm late. I hit every traffic light coming home.", "What happened to us? We used to be so wild.", "Yes, it's hot. But a ceiling fan will only make things worse."],
+"532": ["Yeah, well your profile wasn't exactly honest either.", "I got your message. How can I help?", "We should probably exchange insurance information."],
+"533": ["Sorry for the wait, but it's been like Grand Central Station in here.", "Before this I was a bus-boy.", "If you see something, say something."],
+"534": ["No, what I said was we need more stakeholders.", "Sir, you should probably assume your human form for the shareholders meeting.", "Anywhere but Eve's office."],
+"535": ["He wants to know if you can move your seat up.", "Then why did you have the bumper sticker?", "Trust me; in five years echolocation will have completely replaced GPS."],
+"536": ["And are the clowns inside you now?", "Where do the voices tell you to go?", "You got yourself here. That's a good start."],
+"537": ["He's not reinventing it, he's making it great again.", "Try to look surprised.", "The hole in the middle was my idea."],
+"538": ["Think it over. I'm still the only one here who can use a can opener.", "I'm not a big cat person.", "Kids, stay in the thimble."],
+"539": ["Let's not mistake his confidence for leadership.", "I think I will unfollow him.", "You think that's impressive? Wait 'til we get to the lake."],
+"540": ["I know a specialist, but he's in prison.", "It could be a combination of things.", "You're lucky someone was on the sidewalk to break your fall."],
+"541": ["Well, if it isn't the Gym Reaper.", "I see fashion's dead, too.", "Let me guess, Casual Friday the 13th?"],
+"542": ["It deployed when her carriage rear-ended an ox cart.", "She's the only surviving wife of Henry the VIII.", "I know her but we were never close."],
+"543": ["Actually, it's all we ever talk about.", "Why can't you just wear a button, like most people?", "It's your metaphor. You feed it!"],
+"544": ["It wouldn't be so bad if their printers weren't in our pants."],
+"545": ["It's amazing to think he started out in the lobby."],
+"546": ["I knew they were smart. I didn't know they were sarcastic.", "Very nice. Now do a boat.", "I'm thinking now I probably should have just trained them to get help."],
+"547": ["Like the pomp. Not crazy about the circumstances.", "I'm thinking about quitting the band.", "This is my first mirage à trois, too."],
+"548": ["Sir, I just need you to take one small step out of the vehicle.", "I don't make the laws of physics, sir. I just enforce them.", "Do you know why I pulled you over, or how?"],
+"549": ["I admire your restraint.", "I have some good news—we're letting you go.", "Tell me about a difficult situation you've been in and what you did to get out of it."],
+"550": ["Where do you see yourself five chairs from now?", "What makes you think you were not our first choice?", "You will have one more try when the music starts."],
+"551": ["Row v. Wave.", "Don't worry, the polls show it will miss us.", "We shall overcomb."],
+"552": ["Long time no sea.", "All I'm saying is that the science isn't necessarily conclusive.", "Actually, we're in the same boat."],
+"553": ["Maybe his second week will go better.", "I'd like to see other people.", "The corrupt media will blow this way out of proportion."],
+"554": ["You were with Ringling Brothers? I was with Lehman Brothers.", "Shouldn't you be at your confirmation hearing?", "Sorry -- none of our hours are happy anymore."],
+"555": ["The doctor said it might help me quit.", "Needs dressing.", "I miss the screaming."],
+"556": ["We had meth on Tuesday.", "Are you sure the recipe said mustard gas?", "Is that a new outfit?"],
+"557": ["I'll be damned.", "What do you mean it's your mother's recipe?", "Wait, we have an oven?"],
+"558": ["No, you grow up.", "Honey? The baby's outsmarted me again.", "There's got to be an easier way to keep me insured."],
+"559": ["I can't believe my eye!", "See? A real pirate would have cannonballed.", "Let's just shoot the next one."],
+"560": ["Getting past the guard is easy. How do we remove the paintings?", "I invented fire. He invested in it.", "Personally, I'm not a big fan of modern architecture."],
+"561": ["I'll let go of the stick when you let go of the stick.", "Stay still. They'll never find us.", "This was more romantic in Lady and the Tramp."],
+"562": ["But where would we raise the kids?", "One of us is about to die.", "I didn't think the oceans could rise any higher."],
+"563": ["Honey, is the Tesla recharged yet?", "Won't be long until I'm bumped upstairs to the maze.", "No, no! We don't test on animals."],
+"564": ["Hire the one that said 'Whom'.", "Gladys, get me a BLT and nine mice.", "They keep away the pigeons."],
+"565": ["Your insurance company got back to us.", "Good news. We found a match.", "Have you tried exorcising?"],
+"566": ["He calls it Ishmeow.", "We'll see how affectionate he is when he finds out who ate his parrot.", "There goes my novel."],
+"567": ["Like I'm the first person who's tried sleeping their way to the top.", "And where was the outrage over Alan's standing desk?", "Don't just stand there. Tuck me in."],
+"568": ["So when are you two taking the plunge?", "You must be the hostages.", "If you get a choice the East River is nice."],
+"569": ["Psst. You want to buy an alligator?", "Mind if I jump in?", "I'm from the oversight committee."],
+"570": ["I'm more of a rat person.", "...and here come the bees.", "Shall I keep reading?"],
+"571": ["There's mutiny in the air. Also Viennese dark roast, but mainly mutiny.", "Or you could just move the damn coffee maker.", "Complain all you want but I haven't lost a bathroom key yet."],
+"572": ["I blame inflation.", "Put it down slowly, the mothers are very protective of their young", "It cuts down on the yelling and splashing."],
+"573": ["The doctor says I have only three months to party.", "Medical license? No, but he has a liquor license.", "I was just transferred to the fraternity ward."],
+"574": ["Did I mention I quit my job today?", "It's never done.", "Ask the kids how they want their backpacks."],
+"575": ["We sue at dawn.", "The streets will run red with tape.", "Hostile takeovers ain't what they used to be."],
+"576": ["It's small, but it has a sense of community.", "Just go. I'll only end up hurting you.", "After a while it's like, what bees?"],
+"577": ["Let's go now while there's no line.", "Should we try that new place in the corner?", "Sorry, my roommate's working from home today."],
+"578": ["Remember when I told you that the pizza here is famous?", "The food is ok, but the media coverage is excellent.", "Food photography has gotten to be so competitive."],
+"579": ["This all started with the Fancy Feast.", "His videos bought this house. He deserves a little respect.", "Maybe it's time we had a kid."],
+"580": ["Technically, I'm guarding two posts.", "Seriously, all you need is a letter from your doctor.", "No hurry. He tweets for a couple of hours every morning."],
+"581": ["Not a commandment. Just a suggestion.", "It's a Christmas sweater. Someday you'll understand.", "Thou shalt not machine wash."],
+"582": ["It was green when I went through it.", "I guess I misunderstood when you said long bike ride.", "Look, you agreed to a trial separation."],
+"583": ["You should probably pass if they offer stock options.", "It was a very hostile takeover.", "He didn't want to be chained to his desk."],
+"584": ["Hold on, the Senate Committee on Women's Health is getting out.", "Describe him.", "Never mind. It looks like they fixed the copier."],
+"585": ["Make a different wish, your bagel is really stuck.", "Could you please rub the coffee pot? I need to talk to my wife.", "I shall offer you three settings."],
+"586": ["I have a feeling they are going to treat us like dirt.", "And they say life can't exist in a vacuum.", "Finally, an identifiable flying object."],
+"587": ["I didn't get it at first either, then it hits you.", "It would work beautifully in that space we have between the forest edge and the highway.", "You'll love the headlight exhibit in the next room, it's mesmerizing."],
+"588": ["Like I would date a guy from Notre Dame.", "Believe it or not, the constant ringing isn't the worst part.", "The apartment is nice, and I met my neighbor who also works at home."],
+"589": ["Can I tell you about a few items that aren't on the menu?", "It's a lot to digest.", "Wait till you see the check."],
+"590": ["It will be worth even more when he's extinct.", "If it's a grocery list we're in trouble", "Let me guess, you didn't invent the wheel either."],
+"591": ["I can give you the tools, but you have to do the work yourself.", "\"I sense there is a lot more below the surface.\"", "\"No, you'll still be conflicted, but you'll smell better.\""],
+"592": ["I'm afraid this whole experiment is about to go south.", "Take away the computers and they're just sitting ducks.", "No Shakespeare yet but they have reproduced several Presidential tweets."],
+"593": ["She left a note. No, I haven't read it yet.", "I'd like to start receiving my bill online.", "What really hurts is that you couldn't tell me to my face."],
+"594": ["I love it when the shirts turn plaid.", "I'm so glad that 'lumberjack' is more a look than an occupation these days.", "Let's just enjoy them while they're still here."],
+"595": ["Don't worry. He won't last long.", "He's not as bad as the last manager. That one was abominable.", "He knows nothing about pants."],
+"596": ["Sure, I've got a few minutes to kill.", "C'mon, live a little.", "No, thanks—I prefer spirits."],
+"597": ["It's cheaper than coach, and he gets more legroom.", "I think I packed more than I need.", "You should see how excited he gets when I pick him up at baggage claim."],
+"598": ["It's for my back. You have two more questions.", "Do you seek alignment?", "Before I settled here, I bounced around a lot."],
+"599": ["My insurance doesn't cover prehistoric conditions.", "Somebody carve 911.", "The doctor said it will eventually just go extinct."],
+"600": ["Results are still preliminary, but all indications suggest that he is a good boy.", "You beamed him up. You feed him.", "We found it tethered to an inferior life-form."],
+"601": ["I thought you said it wouldn't need much attention.", "Keep moving. He's a hugger.", "This is good peyote."],
+"700": ["Looks like you're already familiar with the side effects.", "You're going to need some help with these suppositories.", "I take it you already know about the side effects."],
+"701": ["I just want to make sure 'mousse' isn't a typo.", "I was considering ordering the cheese board but that seems like a trap.", "I've been coming to this place since it was a hole in the wall."],
+"702": ["You asked if I wanted product in my hair...and I said a smidgeon...a smidgeon, Ralph.", "Could you trim the sides but leave it feathered on top?", "I switched from Pantene to Dove"],
+"703": ["We have them between all tables, it encourages social distancing.", "He's acting up because your purse was somebody he knew", "You can tell whether it's an alligator or a crocodile by whether you see it later or after a while."],
+"704": ["Forget everything you've ever thought about elevator music.", "You're in 702? Awesome, we're in 704", "Neither one of us plays, but we find they keep people at least six feet away."],
+"706": ["Well,I know what Duke Ellington would do.", "Of course... we wait forever, then two come at the same time.", "And to think, this was Times Square a month ago."],
+"707": ["This was easier to carry when it was flat.", "Next week I'll move Heaven for you.", "It's mostly water weight"],
+"708": ["A better question is, why aren't YOU wearing a mask?", "I'm off to Walmart. Do you need anything?", "Does this make me look middle aged?"],
+"709": ["You might want to try the stairs. This one only goes down and takes an eternity.", "I just pressed 2020", "Kellyanne! We've been waiting for you."],
+"710": ["Remember when he was just a humming bird?", "That's what happens when you make a nest with bluegrass.", "This next song is for the two idiots with the binoculars."],
+"711": ["Yes, it's a home game. Of course it's a home game. Everything's a fricking home game.", "I'm really looking for ward to the away games.", "3rd month, nobody out."],
+"712": ["So...we had a bad 1st quarter. It's not the end of the world.", "Tell me about a time you identified a problem that others didn't see coming.", "Final interview question-Where do you see yourself in five years?"],
+"713": ["...there's yer problem! ya gotta short circus!", "Is it wise for the entire presidential administration to ride in one car?", "On your way to the Republican National Convention, I see."],
+"714": ["At that moment Willow was consumed with three thoughts: she couldn't swim,they were on their third drink,and she was on her ninth life.", "God, I cannot wait until they go back to work", "It was times like these that Mr. Snuffles most regretted being declawed."],
+"715": ["The recipe said 'One egg, beaten.' I was lucky to get out alive.", "No, you're thinking of my brother Humpty. I fell off the wagon.", "In hindsight , I should have let the chicken go first."],
+"716": ["Could we have outstayed our welcome?", "The listing did say kitchen to die for.", "I've lost six pounds and a toe since starting this diet..."],
+"717": ["Well, at least up here we only have to feed it.", "I think we got the better end of this pet-sharing deal.", "I guess I misheard. I thought the realtor said there was 'a draft' in the apartment."],
+"718": ["I don't think 'dressage' means what you think it means.", "I don't need your approval. I just need you to tie the laces.", "It's genius! They'll be tracking 2 men on foot!"],
+"719": ["Ignore the 'Whites Only' sign.", "...course you'll have to put some money into it.", "If you want a side-by-side, you'll have to go to the suburbs."],
+"720": ["I changed my mind. It would look better on the other side.", "Now imagine having to do that in heels", "The blind date site stated you are Strong, upwardly mobile and persistent which sounded good at the time."],
+"721": ["I can still vote by mail,you know.", "My hair is never gonna grow that long before dinner time.", "This is all very well, but where are YOU going to self-quarantine?"],
+"722": ["This is the only house I could find under a grand.", "I don't know who was playing it, but he brought the House Down.", "You were right. We should have requested a fiddler on the roof."],
+"723": ["Less woofer?", "We should be able to finish the album today, as long as no one rings the doorbell.", "A little more on the Woofer"],
+"724": ["'MEET ??' I heard 'EAT'.", "I've been told there's a thesaurus here.", "Mary Trump, your uncle sent me."],
+"725": ["Wait, dad! Your glasses!", "I say we wait until apples are back in season.", "Maybe we could do this via zoom?"],
+"726": ["Once they choose their queen, honey, it's really hard to change their minds.", "The President says that we should ignore them they will just go away.", "I asked you to go get two MOJITOS!!!"],
+"727": ["It's the closest you'll get to Manhattan in your price range.", "You work remote, right?", "And your nearest neighbors are light years away."],
+"728": ["Okay, okay. Fine, I'll fill out the census.", "Six feet dude. Six. Feet.", "Thank you for agreeing to meet remotely."],
+"730": ["I'm the only one commenting on your name, Dr. Katz?", "Dr. R. O. Dent, I am happy to report that our experiment  using Bleach was 98% successful in eradicating the infestation in the White House!", "It's an honor to be working with someone who was in on the ground floor of the research."],
+"731": ["With all due respect, Helen, you're gonna find crappy men in China, too", "During next week's session we'll have you paint yourself into a corner.", "Well, I think we did more than scratch the surface today"],
+"732": ["It's true, your honor. I slept with the witness.", "And at what point did they threaten to beat the stuffing out of you?", "Isn't it true, Mr. Bear, that you were in bed with my client on the night in question?"],
+"733": ["It seems you promised them herd immunity, Sir.", "Every time we attempt a re-count we fall asleep.", "You figured eating the black one wouldn't be noticed ??"],
+"734": ["This your last chance to come clean.", "Boss is makin' us work from home now.", "Stop fighting it kid, everyone eventually sings in the shower."],
+"735": ["It always ends in tiers......", "I shouldn't be telling you this but I saw her last week on a different cake.", "Actually, I'm vanilla. Red Velvet is my stripper name."],
+"736": ["You can advocate for wind power all you want, Randy, but you're not going to escape your fossil fuel destiny.", "'You know, sometimes I look at you Dave and think our species is doomed.'", "No one will ever wear that.  Not in 100 million years."],
+"737": ["I thought you said the cloud was secure.", "We have a stalker.", "Now that he's hacked the cloud, do you think he'll spill the beans?"],
+"738": ["Just to mess with him put them back on the tree.", "Wait, did they say 'take the man and leave' or 'take the man and leaves?'", "This is your first abduction, isn't it?"],
+"739": ["Of course we wanted a son. But we also wanted unconditional love.", "When you've mastered 'sit' and 'stay' you'll be a Good Boy too", "Let's think of a better word to call his mommy."],
+"740": ["I hope she doesn't say 'charge'", "The policy was 'You break it you bought it', and he ended up owning the place.", "He was very excited to get the job. His wife is over the moon."],
+"741": ["Don't be fooled. He has a dark side.", "I think it's just a phase.", "When the moon's in the sky like a big winking eye, that's emoji."],
+"742": ["Sir, this is the Met. The Mets are down the street.", "This is the watercolor gallery. We don't allow charcoal here.", "That's not how artist-in-residence works."],
+"743": ["I've changed my mind. I love it.", "Still not level.", "Are you even listening to me?"],
+"744": ["Your going as a satellite dish? I'm going as a pilgrim.", "As a Republican I have to wear it this way, otherwise it's impossible to stick my head up my ass.", "Any place you'd like me to lick for you?"],
+"745": ["We probably should have done something about this last year when it was still three blocks away.", "Thank goodness we salted the roads", "We traced the slime trail back to Ted Cruz's house."],
+"746": ["I forgot what I came upstairs for.", "Those better not be my good rocks.", "On second thought, put them back in a circle."],
+"747": ["Just be glad he's not wearing his kilt today.", "I think it's called an air B&B.", "I just hope they don't put in a pool."],
+"748": ["I would prefer to go out the way we came in.", "I usually wake up at this point.", "Talk about being consumed by your work."],
+"750": ["It's good to be back in the field. It just wasn't the same working from home.", "Every time they say 'baa' please stop saying 'humbug'.", "Remember to check for faces—I once barked at a cotton bale for hours."],
+"751": ["If you see a fork in the road, avoid it.", "If you jump up and down, it starts snowing.", "My fish says you get used to it."],
+"752": ["Don't give them anything. It only encourages sequels.", "Be careful, the one behind us is unabridged.", "I think I took one of them to bed."],
+"753": ["Oh I'm sorry, maybe I'd move faster if SOMEONE didn't bite my leg off.", "Hit me again with your cart and I'll hunt you down until the day I die.", "If anyone asks, you're my support animal."],
+"754": ["Whoa, the new recruit went down the laundry chute.", "I have a feeling there's a psychologist waiting down there.", "After you - I'm out of shape."],
+"755": ["Yes Robert I bought a chair. I was sick of my options being between a rock and a hard place.", "Do you want to go clubbing later?", "Yes, the mammoth is free range."],
+"756": ["And just when I finally got comfortable in my own skin, she repainted the bedroom.", "I'm referring you to another therapist. I'm afraid I can't see you any longer.", "Patient failed to show for yet another session…"],
+"757": ["I thought partly cloudy with a chance of rage was a typo", "Well it looks like my mother found out that you're not Jewish.", "They banned him from Twitter, but he's still in the Cloud."],
+"758": ["Honey can you close the door? I'm in a meeting.", "I'm secretary of the exterior.", "My company rehired me as an outside consultant."],
+"759": ["They call it kitsch-and-release.", "Well, well, well. If it isn't the one who got away.", "If Bob calls and offers you a position on the board — don't take it."],
+"761": ["He's the only one who can legally hand out refreshments to voters in Georgia.", "One soul for half a dozen lemons is still cheaper than Whole Foods.", "He says I don't have to worry about returning the dish."],
+"762": ["First, let me bring you up to speed.", "You're cold blooded. You belong in upper management.", "Well for starters, you were 4 days late to the interview."],
+"763": ["You can use the loaner corn dog while you wait. Can you drive a stick?", "How long has the 'Check Condiments' light been on?", "I can only give you a ball park estimate."],
+"764": ["If you're from Uber Eats, just sprinkle it in.", "Congratulations on making it this far. Just one more task and you can reset your password.", "To be fair, you're not what I was expecting either."],
+"765": ["It was then that Marcus realized that his message in a bottle requesting beer and ice may have contained a single yet crucial typo.", "Damn. I literally said I'd deny climate change until it comes and bites me in the ass.", "Funny, I was just telling myself things couldn't possibly be worse."],
+"766": ["Well played, Fran. The tuba will be gone by morning.", "Sorry. I misunderstood the 'huge vacuum in your life' remark.", "What a coincidence! I couldn't sleep either!"],
+"767": ["You seem really nice - most of the guys I date are clowns.", "Kids? I love kids. Hand me one.", "My biggest fan was my late husband."],
+"768": ["My left or your left?", "I always knew we'd wind up together.", "Oh dear, that's my wife! Act casual."],
+"769": ["Trying to make it feel more like Amazon. I mean, the Amazon.", "His favorite book is A Farewell to Arms, so don't get too close.", "His name's Readers Digest."],
+"770": ["I guess 'trail lawyer' wasn't a typo after all.", "I found them Sir. No, they don't want to extend their vehicle's warranty.", "He's an adventure capitalist."],
+"771": ["Three more dollars and we can order a pizza.", "When you told me your ex wanted every last dime, I had no idea she would take it this far.", "This is not what I meant when I said I was looking for change."],
+"772": ["This isn't what I meant when I said to go towards the light.", "Let's just say the milk isn't the only thing that's about to expire.", "Eat whatever you want. It's a bus that kills you."],
+"773": ["„.dnos ǝɥʇ ɹǝpɹo ʇ'uoᗡ„", "It appears the tables have turned.", "We should've ordered our drinks straight up."],
+"774": ["O, hi Carol. I didn't expect it would be an ex that marked the spot.", "To be fair, you don't look like your profile picture either.", "You're a sight for a sore eye."],
+"775": ["Can't believe we're opening for Genesis.", "I wish we had done the sex and drugs first.", "They'll never know what we used our tiny arms for."],
+"776": ["He hasn't proposed yet, but he did give me a written estimate.", "My other son is a mortician. Wanna see the basement?", "It was tough to find a one room apartment with a garage but we got lucky."],
+"777": ["Amazon accidentally sent two.", "It works fine, we're just no longer a nuclear family.", "Already sold. Guy on the phone. Kim something."],
+"778": ["It's the closest Texas would let us get to sex ed.", "Him? That's the guy who figured out how much wood a woodchuck could chuck.", "We have ordered both from Amazon and we are going to see which comes first."],
+"779": ["I don't ask you how you squeezed into that sweater.", "In my defense, the water dish was empty and the toilet lid was down", "Now that you've sobered up, do you remember where you took the goldfish on their walk?"],
+"785": ["Come out with your hands up, wrists straight, fingers gently curved!", "Looks like someone is here to settle a score.", "Sheriff's not gonna like the sound of this."],
+"786": ["This is the homework your son alleges my client ate.", "And finally, an option to extend his leash.", "...and you understand, that while this is one year contract for you, it's a seven year contract for him."],
+"787": ["Of course I'm living in the past. Have you seen the present?!", "Just had a thought. What if I put the wheel on the outside?", "Are you trying to tell me that B.C. is a place in Canada?"],
+"788": ["You should have done that before you put it on.", "I assume it's a destination wedding?", "Or you could just get vaccinated."],
+"789": ["Do you have to come in here every time I turn on the light?", "I really hope you make better use of your last two wishes.", "What the hell is a midlife chrysalis?"],
+"790": ["You take a left at these lights. Go the the next junction. Spin around 10 times. Hit the wall. Then reverse back about 10 feet and it should be on your left.", "Please let me know if you pass three toddlers traveling in a teacup.", "Walter soon realized that he was not prepared for life in the fast lane."],
+"791": ["I'm pretty sure I wasn't their first choice.", "And the acoustics make me sound like a German shepherd.", "They'll eventually figure out I'm full grown."],
+"792": ["It seems someone else wrote a song called 'HELP'", "Good news, you got into Juilliard", "These reviews are all terrible, but 'washed up' really hurts."],
+"793": ["Teach a bear to shop and he will never have to fish again.", "Could you toss it to me instead? I want to tell my wife I caught it.", "It's an appetizer. I'm having people for dinner tonight."],
+"794": ["I told you no lawyer on earth would take our case.", "It's worse than an invasion. It's an audit.", "Oh, I thought Robert said he was practicing Martial law."],
+"795": ["His last words were 'I hope this goes straight to her hips.'", "You mate it. We plate it.", "I believe you're familiar with tonight's entrée."],
+"796": ["Turns out they only check to see if you return the shoes.", "Apparently the floors are so thin you can hear a pin drop.", "I think we need a longer apartment."],
+"797": ["Is this a Middle Age crisis?", "If you think that's uncomfortable you should try wearing heels.", "It says here that you're a free lancer."],
+"798": ["Sure, call Roadside Assistance. The more, the merrier.", "You're gonna laugh—I actually had a mechanic for breakfast this morning.", "Don't worry, you'll be running in no time."],
+"799": ["But enough about me, tell me about your lives.", "The last time we did this, I woke up neutered.", "I must say, when your profile said 'Must like cats' this isn't exactly what I was expecting…"],
+"800": ["He may need more time to develop.", "How did they find this guy?", "They drafted him sight unseen."],
+"802": ["It was so much easier when everyone was still working from home.", "Be careful. It's hot.", "I'm surprised you didn't order wings."],
+"803": ["It's like new. The previous owner preferred the box it came in.", "We call it 'The Trump,' for its empty red bottom and hideous yellow top.", "Okay I'll grab some crayons and get started on the paper work."],
+"804": ["You're home early.", "And that's how cryptocurrency works.", "It just doesn't feel like anything I do impresses you anymore."],
+"805": ["When we were dating he climbed a skyscraper for me—now I can't even get him to take out the garbage.", "Your mom and I think it may be time for you to get your own place.", "I see... and is the gorilla with us in the room right now Ms. Johnson?"],
+"806": ["The castle looked bigger on Zillow.", "Could you rub some WD-40 on my back?", "Can I interest you in a one knight stand?"],
+"807": ["We use the males as a control group - they never ask for directions.", "I wasn't sure if you said maze or maize, so I did both.", "To accurately simulate the IKEA experience there is, in fact, no way out."],
+"808": ["Yeah, Florida was just getting too weird for us.", "The U.S. Supreme Court repealed the law of gravity because it wasn't mentioned in the Constitution so we just took off with it.", "No matter how far we go, your freaking parents always show up."],
+"809": ["Once the kids move out it'll get easier", "Not so tiny now, is it?", "Let me do the talking when your mother wakes up."],
+"810": ["Once you press your floor number, he'll never forget.", "The zoo wants me to work from home.", "Everyone ignores the elephant in the room, but take one on the elevator and everyone has something to say."],
+"811": ["I told the aquarium we'll be working remotely from now on.", "Hey, nobody goes hunting for the Great Tan Whale.", "Of course I turned off echolocation. I'm on vacation!"],
+"812": ["Pleasing people is all I know, but you wouldn't understand.", "It's just so frustrating: every time I bring the ball back, he just throws it again.", "It's easy for you to say; you always land on your feet."],
+"813": ["Sign the treaty, I'm out of quarters.", "You have a choice. Stay here and face the harsh Russian winter with your entire army stranded and in disarray, or come home for lunch.", "You know he lost, right?"],
+"814": ["It has unlimited data, unlimited minutes, with one string attached.", "No, this is not a spam call. I checked the label.", "Before I send someone out there, please unplug the string from the back of your can then plug it firmly back in."],
+"815": ["This place is known for serving local produce.", "Appears to be a food group.", "Elbows on the table. Another reason I don't like broccoli."],
+"816": ["My ex-wife got most of the house.", "So Mason, is that a family name?", "You were more fun when you were plastered."],
+"817": ["They tell you to reach for these, but never what to do if you actually catch one.", "It turns out they're just cardboard covered in tin foil.", "Some of us pursue stardom, while others have stardom thrust upon them."],
+"818": ["You told me to come back when I got my act together!", "I preferred when it was just the elephant in the room", "Circuits, Alexa! I said, 'Order circuits!'"],
+"819": ["My wife said, 'Try them on, it won't kill you.'", "So my wife says, 'Would it kill you to wear something colorful?'", "I swore I would never be caught dead in these pants, yet here we are."],
+"820": ["You've got it upside down.", "Am I a narcissist if I tell you I see myself in every one of these?", "You are holding it upside down."],
+"822": ["…but the third planet was juuuuust right!", "No, no, no, darling. You weren't adopted … you were abducted.", "I should mention at this point that H.G. Wells was wrong about a lot of stuff."],
+"823": ["I'm going to need to turn somebody into a pilot.", "I call this next trick 'Overbooked Flight', and I will need three volunteers from the audience.", "And for my next trick I will turn a twenty dollar bill into a bag of seven almonds."],
+"824": ["Looks like I caught you at the tail end of your meal.", "The horns were painful going in?  Just wait.", "You do realize that was a lawn ornament."],
+"825": ["Just remember, you can be empty headed and orange and still succeed in America.", "Thanks for carving out a little face time.", "First the good news. Nobody's getting canned."],
+"826": ["I love it when they wake up and ask what year this is.", "For patient comfort, we try to keep the room in the mid-seventies.", "I'm detecting a beat."],
+"827": ["I'm from the future. Vote carefully.", "I'm an evolution denier.", "You get so much more with a smile and a club, than you do with just a smile."],
+"828": ["They want to know if we lost a ball on the Moon in 1971?", "It wants our leader.  Right now that's you by 2 strokes.", "This is still more believable than your hole-in-one story."],
+"829": ["I was young and needed the money.", "She's definitely had work done.", "It's a trick.  Remember what happened to the deer?"],
+"830": ["Well of course I'm being defensive!", "Can we not talk about goals this week?", "Yes, I KNOW I'm blocking. That's the whole point."],
+"831": ["Any happily married people here tonight?", "And a special shoutout to my lovely wife who's in the audience tonight.", "This next one goes out to a special lady in the audience. You know who you are."],
+"832": ["We will not negotiate with terriers.", "Re-treat!", "I have met the enemy, and he's a good boy!"],
+"833": ["This is the option covered by your insurance", "It's going to work a lot faster than the prune juice.", "We find it works quicker than the laxative"],
+"834": ["They recommend the beef.", "Your eggs should be out any minute now.", "Our early bird specials."],
+"835": ["Sir, this is a Whole Foods. The only payment we accept is an arm and a leg.", "If you're going to bury that here, you need to buy something.", "Finally, a good tipper."],
+"836": ["You're a Holstein? Do you know the Greenblatts from Jersey City?", "Let me get this straight, you're food, clothing and a beverage?", "I find it hard to believe you jumped over anything."],
+"837": ["I suspect vowel play", "I have a feeling all will be revealed tomorrow.", "Why couldn't he have been murdered on a Monday."],
+"838": ["It's a win-win. He was delicious, and now we've got a flashlight.", "And all that was left was a giant carbon footprint", "And then he saw something that made his blood run warm."],
+"839": ["I don't care what Satan lets his kids do.", "When I was young, we played with 9 planets.", "It's been 4.5 billion years; will you please just take your shot?!"],
+"840": ["The label said 'Lay flat to iron.'", "I'm still taking you to the cleaners.", "Now might be a good time to grab that sock behind the washer."],
+"841": ["This is too easy. Let's put them in an IKEA.", "And to think, all we did was change their diet from Velveeta to Brie.", "Nothing has sold yet, but we've gotten a few nibbles."],
+"842": ["Duck! Just kidding, watch your step.", "I applied online, they just asked if I knew how to fly.", "If we hit water, remember: be calm on the surface, paddle like hell underneath."],
+"843": ["'Leave the circus,' you said. 'You'll never use those skills,' you said.", "Turns out I can let you go.", "My therapist says I need to let go."],
+"844": ["You can leave your label on.", "First the good news...you've aged well.", "The good news is, you've aged well . . . ."],
+"846": ["Now I'm starting to believe the mailman's side of the story.", "His last owner died? Did they say how?", "And yet he's still afraid of the vacuum."],
+"847": ["I absolutely love what you've done with your air.", "Who does your air?", "I couldn't help but notice you waving to me from across the room."],
+"848": ["Look! The first Robinsons of Spring.", "Is it me, or do you think they should have pulled the parachute chord by this point?", "The Neighborhood Watch is getting out of hand."],
+"849": ["How do I look? Yea or neigh?", "It's for an interview. I'm looking for a stable job.", "I'd like my wife's opinion. She's over in the bridle section."],
+"850": ["If you wanted me to jump, you could've just pushed me.", "I prefer soul.", "I'm about to be at your door!"],
+"851": ["I'm here to conduct your exit interview.", "At this point, I'm no longer sure which one of us they're testing.", "The restroom?  Third door on your right, then left, left again, then right, right and left. You can't miss it."],
+"852": ["It's OK, as long as I don't sit on the Jalapenos.", "I got tired of Pad Thai.", "It was a special offer so I jumped on it."],
+"853": ["Who knew the Swiss had a navy?", "Weapons down. It's the Swiss.", "Wow, and that's just the tip of the Jarlsberg!"],
+"854": ["Are you very satisfied, somewhat satisfied, or not at all satisfied with your pool experience?", "The invite said to wear a suit.", "I'm usually naked in this dream."],
+"855": ["I can't get a dog but you adopt a highway.", "According to Google Maps, I can get to the bathroom in 30 seconds.", "We should get started on dinner before rush hour."],
+"856": ["You don't have to say 'excuse me' every single time.", "Move to Arizona he says. What could go wrong he says.", "My ear keeps popping."],
+"857": ["That's nice.  My husband is a carpenter too.", "Ladies, ant, gentlemen, this is your captain speaking.", "Sarah quickly learnt the difference between extra-leg room  and extra leg-room"],
+"858": ["When I said 'wait till you see these puppies,' what did you think I meant?", "It just depends on what you're looking for -- unconditional adoration or soul-crushing disregard.", "I Shih Tzu not."],
+"859": ["For heavens sake George, let's just split the lunch bill five ways.", "Can I show you something real quick?", "I do this to scare the students, I actually have no idea what it means."],
+"860": ["And I'm the dirty one?", "They fly all this way just to say they ate in the Hamptons.", "I could never eat straight out of the can."],
+"861": ["Welcome to the Mild, Mild West!", "I'm tempted to shoot them both.", "It's my fault.  I said they didn't have the balls to fight."],
+"862": ["If you watch 'Gone With the Wind' with red glasses, the South wins.", "I'm glad we got the progressive lenses.", "He's still orange."],
+"867": ["I heard I'm being considered for a cabinet post.", "Before we get married I should tell you I have a woodpecker.", "I got the job after the other guy got the axe."],
+"868": ["Lately, my meltdowns are coming more frequently.", "My friends complain that I'm frosty and self serving.", "I scream, you scream, we all scream. It's like no one has actual conversations anymore."],
+"874": ["Not as surprising as watching you pick up his poo.", "Adopt-a- Planet. We got Earth.", "You haven't seen a set of keys, have you?"],
+"880": ["Ticking?  Actually I find your breathing more annoying.", "Oh my, I just noticed the time.", "I think you're making things out to be bigger than they are."],
+"883": ["Do you ever get the feeling you're wasting one of your lives?", "That reminds me—your mother called this morning.", "Maul a man and you eat for a day, teach a man to pamper you…"],
+"884": ["What do you mean, 'we can do this the smooth way or the crunchy way'...?!", "My old nemesis.  After all these years I'm an empty shell and you are a shadow of your former self.", "The cane is made of ivory.  Why do you ask?"],
+"885": ["Upset? I'm beside myself!", "Maybe warming up first wasn't such a good idea.", "My whole life flashed before my eyes. Monday, Tuesday, all of it."]
+};
+
+    // -----------------------------
+    // Build metadata
+    // -----------------------------
+    const cartoonMetadata = [];
+    const contestNumbers = Object.keys(captionData).map(n => parseInt(n, 10)).sort((a,b) => a-b);
+    contestNumbers.forEach((contestNum, index) => {
+      cartoonMetadata.push({ id: index + 1, contestNumber: contestNum, imageFile: `${contestNum}.jpg` });
+    });
+
+    // -----------------------------
+    // Game state
+    // -----------------------------
+    let currentFaceIndex = 0;
+    let isPlaying = false;
+    let facePuzzles = [];          // Array< Array<PuzzleItem> >
+    let faceState = [];            // Array<{ minSwapsDeal: number }>
+    let timerInterval = null;
+    let secondsElapsed = 0;
+    let swapCount = 0;
+    let recentlyUsedCartoons = [];
+
+    let dragState = { element: null, index: null, face: null };
+    let dragEventsBound = false;
+
+    // Single panning session tracker to avoid leaking listeners
+    const panningSession = {
+      active: false,
+      img: null,
+      imageDiv: null,
+      startX: 0,
+      startY: 0,
+      translateX: 0,
+      translateY: 0
+    };
+
+    const faceNames = ['Front', 'Back', 'Right', 'Left', 'Top', 'Bottom'];
+    const faceTransitions = {
+      0: { up: 4, down: 5, left: 3, right: 2 },
+      1: { up: 4, down: 5, left: 2, right: 3 },
+      2: { up: 4, down: 5, left: 0, right: 1 },
+      3: { up: 4, down: 5, left: 1, right: 0 },
+      4: { up: 1, down: 0, left: 3, right: 2 },
+      5: { up: 0, down: 1, left: 3, right: 2 }
+    };
+
+    // -----------------------------
+    // Initialization (with preloader)
+    // -----------------------------
+    async function initializeCube() {
+      facePuzzles = [];
+      faceState = [];
+
+      for (let i = 0; i < 6; i++) {
+        const puzzle = generatePuzzleForFace();
+        facePuzzles.push(puzzle);
+        faceState.push({ minSwapsDeal: minimumSwapsFor(puzzle) });
+      }
+
+      // Preload all images needed for this cube before first render
+const urls = collectCubeImageUrls();
+const PRELOAD_DELAY = 250; // ms
+let __preTimer = setTimeout(() => { showPreloader(urls.length); window.__preloaderShown = true; }, PRELOAD_DELAY);
+await preloadImages(urls, (done, total) => { if (window.__preloaderShown) updatePreloader(done, total); });
+clearTimeout(__preTimer);
+if (window.__preloaderShown) { hidePreloader(); window.__preloaderShown = false; }
+renderAllCubeFaces();
+      updateCubePosition();
+      setupDragAndDrop();
+      updateStats();
+    }
+
+    function generatePuzzleForFace() {
+      const availableCartoons = cartoonMetadata.filter(c => !recentlyUsedCartoons.includes(c.contestNumber));
+      const cartoonsToUse = availableCartoons.length >= 9 ? availableCartoons : cartoonMetadata;
+
+      // Weighted selection: favor newer contests
+      const weightedSelection = [];
+      cartoonsToUse.forEach(cartoon => {
+        const num = cartoon.contestNumber;
+        let weight = 1;
+        if (num >= 800) weight = 5;
+        else if (num >= 700) weight = 3;
+        for (let i = 0; i < weight; i++) weightedSelection.push(cartoon);
+      });
+
+      const shuffledWeighted = shuffleInPlace([...weightedSelection]);
+      const selected = [];
+      const usedIds = new Set();
+
+      for (const cartoon of shuffledWeighted) {
+        if (!usedIds.has(cartoon.id)) {
+          selected.push(cartoon);
+          usedIds.add(cartoon.id);
+          if (selected.length === 9) break;
+        }
+      }
+
+      selected.forEach(cartoon => {
+        if (!recentlyUsedCartoons.includes(cartoon.contestNumber)) {
+          recentlyUsedCartoons.push(cartoon.contestNumber);
+        }
+      });
+      if (recentlyUsedCartoons.length > 12) {
+        recentlyUsedCartoons = recentlyUsedCartoons.slice(-12);
+      }
+
+      // Build puzzle data & try to keep captions unique on the face
+      const usedCaptionsInFace = new Set();
+      const puzzleData = [];
+      for (const cartoon of selected) {
+        const contestNum = cartoon.contestNumber;
+        const options = captionData[contestNum] || [];
+        if (!options.length) continue;
+
+        const candidates = options.filter(c => !usedCaptionsInFace.has(c));
+        const pool = candidates.length ? candidates : options;
+        const correctCaption = pool[Math.floor(Math.random() * pool.length)];
+        usedCaptionsInFace.add(correctCaption);
+
+        puzzleData.push({
+          id: cartoon.id,
+          contestNumber: contestNum,
+          imageFile: cartoon.imageFile,
+          correctCaption,
+          currentCaption: "",
+          isCorrect: false
+        });
+      }
+
+      // Shuffle captions into a guaranteed derangement
+      const correctCaptions = puzzleData.map(p => p.correctCaption);
+      let shuffledCaptions = shuffleInPlace([...correctCaptions]);
+      shuffledCaptions = derangeFrom(shuffledCaptions, correctCaptions);
+
+      puzzleData.forEach((p, i) => {
+        p.currentCaption = shuffledCaptions[i];
+        p.isCorrect = (p.currentCaption === p.correctCaption);
+      });
+
+      return puzzleData;
+    }
+
+    // -----------------------------
+    // Rendering
+    // -----------------------------
+    function renderCubeFace(faceIndex, puzzleData) {
+      const faceContent = document.querySelector(`[data-face-content="${faceIndex}"]`);
+      if (!faceContent) return;
+
+      faceContent.innerHTML = '';
+
+      puzzleData.forEach((cartoon, cartoonIndex) => {
+        const cartoonBox = document.createElement('div');
+        cartoonBox.className = 'cube-cartoon';
+        cartoonBox.setAttribute('data-face', faceIndex);
+        cartoonBox.setAttribute('data-index', cartoonIndex);
+
+        cartoon.isCorrect = (cartoon.currentCaption === cartoon.correctCaption);
+        if (cartoon.isCorrect) cartoonBox.classList.add('correct');
+
+        const imageDiv = document.createElement('div');
+        imageDiv.className = 'cube-image';
+
+        const img = document.createElement('img');
+        img.alt = `Contest #${cartoon.contestNumber}`;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.draggable = false;
+
+        const placeholder = document.createElement('div');
+        placeholder.className = 'image-placeholder';
+        placeholder.innerHTML = `
+          <div class="contest-number-large">#${cartoon.contestNumber}</div>
+          <div style="font-size: 11px; color: #888;">Loading...</div>
+        `;
+        imageDiv.appendChild(placeholder);
+
+        // onload / onerror BEFORE setting src (so cached images trigger properly)
+        img.onload = function () {
+          imageDiv.innerHTML = '';
+          imageDiv.appendChild(img);
+
+          imageDiv.addEventListener('mouseenter', () => {
+            img.style.transform = 'scale(1.5)';
+            img.style.transition = 'transform 0.3s ease';
+            img.style.cursor = 'move';
+          });
+
+          imageDiv.addEventListener('mouseleave', () => {
+            img.style.transform = 'scale(1)';
+            img.style.cursor = 'default';
+            if (panningSession.active && panningSession.imageDiv === imageDiv) {
+              panningSession.active = false;
+            }
+            imageDiv.classList.remove('panning');
+            panningSession.translateX = 0;
+            panningSession.translateY = 0;
+          });
+
+          imageDiv.addEventListener('mousedown', (e) => {
+            if (imageDiv.matches(':hover')) {
+              panningSession.active = true;
+              panningSession.imageDiv = imageDiv;
+              panningSession.img = img;
+              imageDiv.classList.add('panning');
+              panningSession.startX = e.clientX - panningSession.translateX;
+              panningSession.startY = e.clientY - panningSession.translateY;
+              img.style.transition = 'none';
+              e.preventDefault();
+            }
+          });
+
+          imageDiv.addEventListener('mousemove', (e) => {
+            if (panningSession.active && panningSession.imageDiv === imageDiv) {
+              panningSession.translateX = e.clientX - panningSession.startX;
+              panningSession.translateY = e.clientY - panningSession.startY;
+              img.style.transform = `scale(1.5) translate(${panningSession.translateX}px, ${panningSession.translateY}px)`;
+              e.preventDefault();
+            }
+          });
+        };
+
+        img.onerror = function () {
+          placeholder.innerHTML = `
+            <div class="contest-number-large">#${cartoon.contestNumber}</div>
+            <div style="font-size: 11px; color: #888;">Image not found</div>
+          `;
+        };
+
+        // Set src after handlers
+        img.src = `./${cartoon.imageFile}`;
+        // If already cached, trigger onload path immediately
+        if (img.complete && img.naturalWidth > 0) {
+          img.onload();
+        }
+
+        const captionDiv = document.createElement('div');
+        captionDiv.className = 'cube-caption';
+        captionDiv.textContent = cartoon.currentCaption;
+        captionDiv.setAttribute('data-face', faceIndex);
+        captionDiv.setAttribute('data-index', cartoonIndex);
+
+        const canDrag = isPlaying && faceIndex === currentFaceIndex;
+        captionDiv.draggable = canDrag;
+        captionDiv.classList.toggle('draggable', canDrag);
+
+        const checkDiv = document.createElement('div');
+        checkDiv.className = 'cube-check';
+        checkDiv.textContent = '✓';
+
+        const contestNum = document.createElement('div');
+        contestNum.className = 'contest-number';
+        contestNum.textContent = `#${cartoon.contestNumber}`;
+
+        cartoonBox.appendChild(imageDiv);
+        cartoonBox.appendChild(captionDiv);
+        cartoonBox.appendChild(checkDiv);
+        cartoonBox.appendChild(contestNum);
+
+        faceContent.appendChild(cartoonBox);
+      });
+    }
+
+    function renderAllCubeFaces() {
+      for (let i = 0; i < 6; i++) {
+        renderCubeFace(i, facePuzzles[i]);
+      }
+    }
+
+    function updateCaptions(faceIndex) {
+      const puzzle = facePuzzles[faceIndex];
+      const faceContent = document.querySelector(`[data-face-content="${faceIndex}"]`);
+      if (!faceContent) return;
+
+      const cartoonBoxes = faceContent.querySelectorAll('.cube-cartoon');
+
+      cartoonBoxes.forEach((box, index) => {
+        const cartoon = puzzle[index];
+        const captionDiv = box.querySelector('.cube-caption');
+        if (captionDiv) captionDiv.textContent = cartoon.currentCaption;
+
+        cartoon.isCorrect = (cartoon.currentCaption === cartoon.correctCaption);
+        if (cartoon.isCorrect) box.classList.add('correct');
+        else box.classList.remove('correct');
+      });
+
+      updateDragCapabilities();
+    }
+
+    function updateDragCapabilities() {
+      document.querySelectorAll('.cube-caption').forEach(caption => {
+        const face = Number(caption.dataset.face);
+        const canDrag = isPlaying && face === currentFaceIndex;
+        caption.draggable = canDrag;
+        caption.classList.toggle('draggable', canDrag);
+      });
+    }
+
+    // -----------------------------
+    // Drag & Drop
+    // -----------------------------
+    function setupDragAndDrop() {
+      if (dragEventsBound) return;
+      const container = document.getElementById('cubeContainer');
+
+      container.addEventListener('dragstart', handleDragStart, false);
+      container.addEventListener('dragenter', handleDragEnter, false);
+      container.addEventListener('dragleave', handleDragLeave, false);
+      container.addEventListener('dragover', handleDragOver, false);
+      container.addEventListener('drop', handleDrop, false);
+      container.addEventListener('dragend', handleDragEnd, false);
+
+      dragEventsBound = true;
+    }
+
+    function handleDragStart(e) {
+      if (!e.target.classList.contains('cube-caption')) return;
+      if (!e.target.classList.contains('draggable')) { e.preventDefault(); return; }
+
+      const face = Number(e.target.dataset.face);
+      if (face !== currentFaceIndex || !isPlaying) { e.preventDefault(); return; }
+
+      dragState.element = e.target;
+      dragState.index = Number(e.target.dataset.index);
+      dragState.face = face;
+
+      e.target.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragState.index));
+    }
+
+    function handleDragEnter(e) {
+      if (!e.target.classList.contains('cube-caption') || !dragState.element) return;
+      if (Number(e.target.dataset.face) !== currentFaceIndex) return;
+      if (e.target === dragState.element) return;
+
+      e.preventDefault();
+      e.target.closest('.cube-cartoon').classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+      if (!e.target.classList.contains('cube-caption')) return;
+      e.target.closest('.cube-cartoon')?.classList.remove('drag-over');
+    }
+
+    function handleDragOver(e) {
+      if (!e.target.classList.contains('cube-caption') || !dragState.element) return;
+      if (Number(e.target.dataset.face) !== currentFaceIndex) return;
+
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    }
+
+    function handleDrop(e) {
+      if (!e.target.classList.contains('cube-caption') || !dragState.element) return;
+      if (Number(e.target.dataset.face) !== currentFaceIndex) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const dropIndex = Number(e.target.dataset.index);
+      const dragIndex = dragState.index;
+
+      if (dropIndex === dragIndex) {
+        e.target.closest('.cube-cartoon')?.classList.remove('drag-over');
+        return;
+      }
+
+      // Swap captions in current face
+      const puzzle = facePuzzles[currentFaceIndex];
+      const tempCaption = puzzle[dragIndex].currentCaption;
+      puzzle[dragIndex].currentCaption = puzzle[dropIndex].currentCaption;
+      puzzle[dropIndex].currentCaption = tempCaption;
+
+      puzzle[dragIndex].isCorrect = (puzzle[dragIndex].currentCaption === puzzle[dragIndex].correctCaption);
+      puzzle[dropIndex].isCorrect = (puzzle[dropIndex].currentCaption === puzzle[dropIndex].correctCaption);
+
+      swapCount++;
+      updateCaptions(currentFaceIndex);
+      updateStats();
+      checkWin();
+
+      return false;
+    }
+
+    function handleDragEnd(e) {
+      if (!e.target.classList.contains('cube-caption')) return;
+      e.target.classList.remove('dragging');
+      document.querySelectorAll('.cube-cartoon.drag-over').forEach(el => el.classList.remove('drag-over'));
+      dragState.element = null; dragState.index = null; dragState.face = null;
+    }
+
+    // -----------------------------
+    // Cube controls, stats, timers
+    // -----------------------------
+    function rotateCube(direction) {
+      const nextFace = faceTransitions[currentFaceIndex][direction];
+      if (nextFace !== undefined) {
+        if (isPlaying) togglePlayMode(); // Stop playing on rotate
+        currentFaceIndex = nextFace;
+        updateCubePosition();
+        document.getElementById('faceIndicator').textContent = `${faceNames[currentFaceIndex]} Face`;
+        renderCubeFace(currentFaceIndex, facePuzzles[currentFaceIndex]);
+        updateDragCapabilities();
+        updateStats();
+      }
+    }
+
+    function updateCubePosition() {
+      const cube = document.getElementById('cube');
+      let rotateX = 0, rotateY = 0;
+      switch (currentFaceIndex) {
+        case 0: rotateX = 0; rotateY = 0; break;
+        case 1: rotateX = 0; rotateY = 180; break;
+        case 2: rotateX = 0; rotateY = -90; break;
+        case 3: rotateX = 0; rotateY = 90; break;
+        case 4: rotateX = -90; rotateY = 0; break;
+        case 5: rotateX = 90; rotateY = 0; break;
+      }
+      cube.style.transform = `translateZ(-385px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+    }
+
+    function togglePlayMode() {
+      isPlaying = !isPlaying;
+      document.querySelectorAll('.cube-face').forEach(f => f.classList.remove('active'));
+
+      if (isPlaying) {
+        document.querySelectorAll('.cube-face')[currentFaceIndex].classList.add('active');
+        document.getElementById('playButtonText').textContent = 'Stop Playing';
+        startTimer();
+        swapCount = 0;
+        updateDragCapabilities();
+      } else {
+        document.getElementById('playButtonText').textContent = 'Click to Start';
+        stopTimer();
+        updateDragCapabilities();
+      }
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('swapCountDisplay').textContent = String(swapCount);
+      const minSwapsDeal = faceState[currentFaceIndex]?.minSwapsDeal ?? 0;
+      document.getElementById('minSwapsDisplay').textContent = String(minSwapsDeal);
+    }
+
+    function checkWin() {
+      const puzzle = facePuzzles[currentFaceIndex];
+      const allCorrect = puzzle.every(c => c.currentCaption === c.correctCaption);
+      if (allCorrect) {
+        stopTimer();
+        const minSwaps = faceState[currentFaceIndex]?.minSwapsDeal ?? 0;
+
+        const winOverlay = document.getElementById('winOverlay');
+        document.getElementById('winStats').textContent =
+          `Time: ${secondsElapsed}s | Swaps: ${swapCount} | Min possible: ${minSwaps}`;
+        winOverlay.classList.add('show');
+
+        if (isPlaying) togglePlayMode();
+
+        setTimeout(() => winOverlay.classList.remove('show'), 3000);
+      }
+    }
+
+    function startTimer() {
+      stopTimer();
+      secondsElapsed = 0;
+      document.getElementById('timerDisplay').textContent = '0s';
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        document.getElementById('timerDisplay').textContent = `${secondsElapsed}s`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    async function nextUnsolvedFace() {
+      if (isPlaying) togglePlayMode();
+
+      dragState.element = null; dragState.index = null; dragState.face = null;
+
+      let foundUnsolved = false;
+      let nextFace = (currentFaceIndex + 1) % 6;
+
+      for (let i = 0; i < 6; i++) {
+        const puzzle = facePuzzles[nextFace];
+        const isSolved = puzzle.every(c => c.currentCaption === c.correctCaption);
+        if (!isSolved) {
+          foundUnsolved = true;
+          currentFaceIndex = nextFace;
+          break;
+        }
+        nextFace = (nextFace + 1) % 6;
+      }
+
+      if (!foundUnsolved) {
+        // If everything is solved, start a brand new cube (preloads automatically)
+        await newCube();
+        return;
+      }
+
+      updateCubePosition();
+      document.getElementById('faceIndicator').textContent = `${faceNames[currentFaceIndex]} Face`;
+
+      secondsElapsed = 0;
+      swapCount = 0;
+      document.getElementById('timerDisplay').textContent = '0s';
+
+      renderAllCubeFaces();
+      updateDragCapabilities();
+      updateStats();
+    }
+
+    async function newCube() {
+      if (isPlaying) togglePlayMode();
+
+      dragState.element = null; dragState.index = null; dragState.face = null;
+
+      await initializeCube();
+
+      currentFaceIndex = 0;
+      updateCubePosition();
+      document.getElementById('faceIndicator').textContent = `${faceNames[currentFaceIndex]} Face`;
+
+      secondsElapsed = 0;
+      swapCount = 0;
+      document.getElementById('timerDisplay').textContent = '0s';
+      updateStats();
+    }
+
+    function solvePuzzle() {
+      const puzzle = facePuzzles[currentFaceIndex];
+      puzzle.forEach(cartoon => {
+        cartoon.currentCaption = cartoon.correctCaption;
+        cartoon.isCorrect = true;
+      });
+      updateCaptions(currentFaceIndex);
+      updateStats();
+      if (isPlaying) checkWin();
+    }
+
+    function resetDrag() {
+      if (isPlaying) togglePlayMode();
+
+      dragState.element = null; dragState.index = null; dragState.face = null;
+
+      for (let faceIndex = 0; faceIndex < 6; faceIndex++) {
+        const puzzle = facePuzzles[faceIndex];
+        const correctCaptions = puzzle.map(p => p.correctCaption);
+
+        let shuffledCaptions = shuffleInPlace([...correctCaptions]);
+        shuffledCaptions = derangeFrom(shuffledCaptions, correctCaptions);
+
+        puzzle.forEach((cartoon, i) => {
+          cartoon.currentCaption = shuffledCaptions[i];
+          cartoon.isCorrect = false;
+        });
+
+        // Recompute min swaps for this face's new deal
+        faceState[faceIndex].minSwapsDeal = minimumSwapsFor(puzzle);
+      }
+
+      secondsElapsed = 0; swapCount = 0;
+      document.getElementById('timerDisplay').textContent = '0s';
+      document.getElementById('swapCountDisplay').textContent = '0';
+
+      for (let i = 0; i < 6; i++) updateCaptions(i);
+      updateStats();
+
+      const resetBtn = document.querySelector('.reset-btn');
+      resetBtn.style.background = '#4CAF50';
+      setTimeout(() => { resetBtn.style.background = '#607d8b'; }, 300);
+    }
+
+    function toggleHelp() {
+      const helpOverlay = document.getElementById('helpOverlay');
+      helpOverlay.classList.toggle('show');
+    }
+
+    // -----------------------------
+    // Keyboard & global mouse handlers
+    // -----------------------------
+    document.addEventListener('keydown', async (e) => {
+      if (document.getElementById('helpOverlay').classList.contains('show')) {
+        if (e.key === 'Escape') toggleHelp();
+        return;
+      }
+      switch (e.key) {
+        case 'ArrowUp':    e.preventDefault(); rotateCube('up'); break;
+        case 'ArrowDown':  e.preventDefault(); rotateCube('down'); break;
+        case 'ArrowLeft':  e.preventDefault(); rotateCube('left'); break;
+        case 'ArrowRight': e.preventDefault(); rotateCube('right'); break;
+        case 'Enter':      e.preventDefault(); togglePlayMode(); break;
+      }
+    });
+
+    // End any panning if mouse released outside the image
+    document.addEventListener('mouseup', () => {
+      if (panningSession.active) {
+        panningSession.active = false;
+        if (panningSession.imageDiv) panningSession.imageDiv.classList.remove('panning');
+        if (panningSession.img) panningSession.img.style.transition = 'transform 0.3s ease';
+      }
+    });
+
+    // -----------------------------
+    // Boot
+    // -----------------------------
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Optional debug logs
+      const allContests = Object.keys(captionData).map(n => parseInt(n, 10)).sort((a,b) => a-b);
+      console.log("=== CONTEST DATA DEBUG ===");
+      console.log("Total contests loaded:", allContests.length);
+      console.log("First 10 contests:", allContests.slice(0, 10));
+      console.log("Last 10 contests:", allContests.slice(-10));
+      const above800 = allContests.filter(n => n >= 800);
+      console.log("Contests 800+:", above800.length, "contests");
+      console.log("800+ contest numbers:", above800);
+
+      await initializeCube();
+    });
+  </script>
+
+<style>
+  #browserNotice {
+    position: fixed; bottom: 12px; left: 12px; right: 12px; z-index: 9999;
+    background: #fffbe6; border: 1px solid #f0c36d; border-radius: 10px;
+    padding: 10px 14px; box-shadow: 0 6px 18px rgba(0,0,0,.08); font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+  #browserNotice button { float: right; border: 0; background: transparent; font-size: 18px; cursor: pointer; line-height: 1; }
+</style>
+
+<div id="browserNotice" role="alert" aria-live="polite" hidden>
+  <button type="button" aria-label="Dismiss notice" onclick="this.closest('#browserNotice').remove()">×</button>
+  <strong>Heads up:</strong> Safari has a couple of known glitches here. For the smoothest experience, please try Chrome or Firefox.
+</div>
+<script>
+  (function () {
+    var ua = navigator.userAgent;
+    var isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg/i.test(ua);
+    if (isSafari) document.getElementById('browserNotice').hidden = false;
+  })();
+</script>
+
+</body>
+</html>
+[
+
+]
